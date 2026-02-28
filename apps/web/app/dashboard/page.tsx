@@ -1,12 +1,17 @@
 "use client";
 
-import { UserButton, useUser } from "@clerk/nextjs";
+import { RedirectToSignIn, SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
 
   return (
+    <>
+    <SignedOut>
+      <RedirectToSignIn />
+    </SignedOut>
+    <SignedIn>
     <div className="min-h-screen bg-bg-primary relative">
       {/* Background */}
       <div className="absolute inset-0 hatching pointer-events-none opacity-15" />
@@ -141,5 +146,7 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+    </SignedIn>
+    </>
   );
 }
