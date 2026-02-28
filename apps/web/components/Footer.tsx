@@ -50,8 +50,8 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-1">
             <a href="/" className="flex items-center gap-2 mb-4">
               <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
-                <rect x="2" y="4" width="16" height="20" rx="1" stroke="#c23b3b" strokeWidth="1.5" fill="none" />
-                <path d="M18 8L26 4V24L18 20" stroke="#c23b3b" strokeWidth="1.5" fill="rgba(194,59,59,0.15)" />
+                <rect x="2" y="4" width="16" height="20" rx="1" stroke="#790f11" strokeWidth="1.5" fill="none" />
+                <path d="M18 8L26 4V24L18 20" stroke="#790f11" strokeWidth="1.5" fill="rgba(121,15,17,0.15)" />
               </svg>
               <span className="font-mono text-sm tracking-wider text-text-primary">
                 FLAGFORGE
@@ -90,7 +90,6 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} FlagForge. MIT License.
           </p>
           <div className="flex items-center gap-6">
-            {/* Social icons */}
             <a href="#" className="text-text-muted hover:text-text-secondary transition-colors" aria-label="GitHub">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 0.8C3.84 0.8 0.47 4.17 0.47 8.33c0 3.32 2.15 6.14 5.14 7.13.38.07.52-.16.52-.36v-1.25c-2.09.46-2.53-1.01-2.53-1.01-.34-.87-.84-1.1-.84-1.1-.68-.47.05-.46.05-.46.75.05 1.15.77 1.15.77.67 1.15 1.76.82 2.19.63.07-.48.26-.82.47-1-1.67-.19-3.43-.84-3.43-3.72 0-.82.3-1.5.77-2.03-.08-.19-.34-.96.07-2 0 0 .63-.2 2.07.78a7.15 7.15 0 013.78 0c1.44-.98 2.07-.78 2.07-.78.41 1.04.15 1.81.07 2 .48.53.77 1.21.77 2.03 0 2.89-1.76 3.53-3.44 3.71.27.24.51.7.51 1.4v2.08c0 .2.14.44.52.36a8.33 8.33 0 005.14-7.13C15.53 4.17 12.16 0.8 8 0.8z" />

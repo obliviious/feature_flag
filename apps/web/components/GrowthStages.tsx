@@ -6,13 +6,12 @@ const stages = [
     description: "WRAP NEW FEATURES IN FLAGS AND SHIP CODE WITHOUT RISK.",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        {/* Bar chart icon */}
-        <rect x="6" y="30" width="5" height="10" stroke="#e8e4de" strokeWidth="1" fill="none" opacity="0.4" />
-        <rect x="14" y="24" width="5" height="16" stroke="#e8e4de" strokeWidth="1" fill="none" opacity="0.5" />
-        <rect x="22" y="18" width="5" height="22" stroke="#e8e4de" strokeWidth="1" fill="none" opacity="0.6" />
-        <rect x="30" y="12" width="5" height="28" stroke="#e8e4de" strokeWidth="1" fill="none" opacity="0.7" />
-        <rect x="38" y="8" width="5" height="32" stroke="#e8e4de" strokeWidth="1" fill="none" opacity="0.8" />
-        <line x1="4" y1="40" x2="44" y2="40" stroke="#e8e4de" strokeWidth="0.5" opacity="0.3" />
+        <rect x="6" y="30" width="5" height="10" stroke="#C1BCA9" strokeWidth="1" fill="none" opacity="0.4" />
+        <rect x="14" y="24" width="5" height="16" stroke="#C1BCA9" strokeWidth="1" fill="none" opacity="0.5" />
+        <rect x="22" y="18" width="5" height="22" stroke="#C1BCA9" strokeWidth="1" fill="none" opacity="0.6" />
+        <rect x="30" y="12" width="5" height="28" stroke="#C1BCA9" strokeWidth="1" fill="none" opacity="0.7" />
+        <rect x="38" y="8" width="5" height="32" stroke="#C1BCA9" strokeWidth="1" fill="none" opacity="0.8" />
+        <line x1="4" y1="40" x2="44" y2="40" stroke="#C1BCA9" strokeWidth="0.5" opacity="0.3" />
       </svg>
     ),
   },
@@ -21,18 +20,17 @@ const stages = [
     description: "GRANULAR USER SEGMENTATION AND PERCENTAGE ROLLOUTS.",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        {/* Curved growth dotted line */}
         <path
           d="M6 38 Q12 36 18 30 Q24 22 30 16 Q36 10 42 8"
-          stroke="#c23b3b"
+          stroke="#790f11"
           strokeWidth="1.5"
           fill="none"
           strokeDasharray="3 3"
           opacity="0.7"
         />
-        <circle cx="18" cy="30" r="2" fill="#c23b3b" opacity="0.5" />
-        <circle cx="30" cy="16" r="2" fill="#c23b3b" opacity="0.7" />
-        <circle cx="42" cy="8" r="2.5" fill="#c23b3b" opacity="0.9" />
+        <circle cx="18" cy="30" r="2" fill="#790f11" opacity="0.5" />
+        <circle cx="30" cy="16" r="2" fill="#790f11" opacity="0.7" />
+        <circle cx="42" cy="8" r="2.5" fill="#790f11" opacity="0.9" />
       </svg>
     ),
   },
@@ -41,10 +39,9 @@ const stages = [
     description: "PROGRESSIVE DELIVERY WITH REAL-TIME MONITORING AND CONTROLS.",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        {/* Overlapping squares */}
-        <rect x="8" y="14" width="18" height="18" stroke="#e8e4de" strokeWidth="1" fill="none" opacity="0.3" strokeDasharray="3 2" />
-        <rect x="18" y="8" width="18" height="18" stroke="#c23b3b" strokeWidth="1.2" fill="none" opacity="0.6" />
-        <rect x="22" y="12" width="10" height="10" fill="rgba(194,59,59,0.12)" stroke="#c23b3b" strokeWidth="0.5" opacity="0.8" />
+        <rect x="8" y="14" width="18" height="18" stroke="#C1BCA9" strokeWidth="1" fill="none" opacity="0.3" strokeDasharray="3 2" />
+        <rect x="18" y="8" width="18" height="18" stroke="#790f11" strokeWidth="1.2" fill="none" opacity="0.6" />
+        <rect x="22" y="12" width="10" height="10" fill="rgba(121,15,17,0.12)" stroke="#790f11" strokeWidth="0.5" opacity="0.8" />
       </svg>
     ),
   },
@@ -53,8 +50,7 @@ const stages = [
     description: "ENTERPRISE-GRADE PERFORMANCE WITH SSE STREAMING TO ALL SDKS.",
     icon: (
       <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        {/* Starburst / expansion */}
-        <circle cx="24" cy="24" r="3" fill="#c23b3b" opacity="0.6" />
+        <circle cx="24" cy="24" r="3" fill="#790f11" opacity="0.6" />
         {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
           const rad = (angle * Math.PI) / 180;
           const x1 = 24 + Math.cos(rad) * 6;
@@ -68,7 +64,7 @@ const stages = [
               y1={y1}
               x2={x2}
               y2={y2}
-              stroke="#c23b3b"
+              stroke="#790f11"
               strokeWidth="1"
               opacity="0.5"
               strokeDasharray={angle % 90 === 0 ? "none" : "2 2"}
@@ -157,7 +153,7 @@ export default function GrowthStages() {
 function Crosshair({ x, y }: { x: string; y: string }) {
   return (
     <div
-      className="absolute font-mono text-sm text-white/[0.08] pointer-events-none select-none"
+      className="absolute font-mono text-sm text-text-primary/[0.08] pointer-events-none select-none"
       style={{ left: x, top: y }}
     >
       +

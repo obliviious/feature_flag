@@ -7,30 +7,29 @@ const features = [
     description: "INSTANT FLAG UPDATES VIA SSE. NO POLLING, NO DELAYS, NO STALE STATE.",
     visual: (
       <svg viewBox="0 0 360 240" fill="none" className="w-full h-full">
-        {/* Convergence diagram — lines meeting at points */}
         {/* Vertical red line */}
-        <line x1="180" y1="20" x2="180" y2="220" stroke="#c23b3b" strokeWidth="1" opacity="0.6" />
+        <line x1="180" y1="20" x2="180" y2="220" stroke="#790f11" strokeWidth="1" opacity="0.6" />
         {/* Horizontal axis */}
-        <line x1="40" y1="130" x2="320" y2="130" stroke="#555" strokeWidth="0.5" opacity="0.4" />
+        <line x1="40" y1="130" x2="320" y2="130" stroke="#5c5848" strokeWidth="0.5" opacity="0.4" />
 
         {/* Converging lines from left */}
         {[60, 80, 100, 120, 140, 160].map((y, i) => (
-          <line key={`l-${i}`} x1="30" y1={y + (i - 3) * 15} x2="180" y2="130" stroke="#e8e4de" strokeWidth="0.5" opacity={0.15 + i * 0.05} />
+          <line key={`l-${i}`} x1="30" y1={y + (i - 3) * 15} x2="180" y2="130" stroke="#C1BCA9" strokeWidth="0.5" opacity={0.15 + i * 0.05} />
         ))}
 
         {/* Right side dots (red = active) */}
         {[0, 1, 2].map((i) => (
           <g key={`r-${i}`}>
-            <circle cx={210 + i * 36} cy={130} r="5" fill="#c23b3b" opacity={0.5 + i * 0.2} />
-            <circle cx={210 + i * 36} cy={130} r="8" fill="none" stroke="#c23b3b" strokeWidth="0.5" opacity="0.2" />
+            <circle cx={210 + i * 36} cy={130} r="5" fill="#790f11" opacity={0.5 + i * 0.2} />
+            <circle cx={210 + i * 36} cy={130} r="8" fill="none" stroke="#790f11" strokeWidth="0.5" opacity="0.2" />
           </g>
         ))}
 
-        {/* Left side dots (gray) */}
+        {/* Left side dots (muted) */}
         {[
           [50, 70], [70, 170], [40, 120], [90, 50], [60, 190], [80, 90], [45, 155],
         ].map(([x, y], i) => (
-          <circle key={`g-${i}`} cx={x} cy={y} r="3.5" fill="#555" opacity={0.3 + (i % 3) * 0.1} />
+          <circle key={`g-${i}`} cx={x} cy={y} r="3.5" fill="#5c5848" opacity={0.3 + (i % 3) * 0.1} />
         ))}
       </svg>
     ),
@@ -62,8 +61,8 @@ const features = [
                 width="36"
                 height="28"
                 rx="1"
-                fill={isHighlighted ? "#c23b3b" : isDim ? "#333" : "none"}
-                stroke={isHighlighted ? "#c23b3b" : "#444"}
+                fill={isHighlighted ? "#790f11" : isDim ? "#352f26" : "none"}
+                stroke={isHighlighted ? "#790f11" : "#3d3830"}
                 strokeWidth={isHighlighted ? "1.5" : "0.5"}
                 opacity={isHighlighted ? 0.8 : isDim ? 0.5 : 0.3}
               />
@@ -80,14 +79,14 @@ const features = [
     visual: (
       <svg viewBox="0 0 360 240" fill="none" className="w-full h-full">
         {/* Pie/radar chart */}
-        <circle cx="180" cy="120" r="85" fill="none" stroke="#444" strokeWidth="0.5" opacity="0.4" />
-        <circle cx="180" cy="120" r="60" fill="none" stroke="#333" strokeWidth="0.5" opacity="0.3" strokeDasharray="3 3" />
+        <circle cx="180" cy="120" r="85" fill="none" stroke="#3d3830" strokeWidth="0.5" opacity="0.4" />
+        <circle cx="180" cy="120" r="60" fill="none" stroke="#352f26" strokeWidth="0.5" opacity="0.3" strokeDasharray="3 3" />
 
         {/* Red sector */}
         <path
           d="M180 120 L265 120 A85 85 0 0 0 240 55 Z"
-          fill="rgba(194,59,59,0.2)"
-          stroke="#c23b3b"
+          fill="rgba(121,15,17,0.2)"
+          stroke="#790f11"
           strokeWidth="1"
         />
 
@@ -100,14 +99,14 @@ const features = [
             cx={x}
             cy={y}
             r="3"
-            fill={i < 3 ? "#c23b3b" : "#555"}
+            fill={i < 3 ? "#790f11" : "#5c5848"}
             opacity={i < 3 ? 0.7 : 0.4}
           />
         ))}
 
         {/* Crosshair at center */}
-        <line x1="172" y1="120" x2="188" y2="120" stroke="#555" strokeWidth="0.5" opacity="0.4" />
-        <line x1="180" y1="112" x2="180" y2="128" stroke="#555" strokeWidth="0.5" opacity="0.4" />
+        <line x1="172" y1="120" x2="188" y2="120" stroke="#5c5848" strokeWidth="0.5" opacity="0.4" />
+        <line x1="180" y1="112" x2="180" y2="128" stroke="#5c5848" strokeWidth="0.5" opacity="0.4" />
       </svg>
     ),
   },
@@ -121,7 +120,7 @@ export default function Features() {
 
       {/* Decorative red dashed line top-left */}
       <svg className="absolute top-0 left-0 w-48 h-12 pointer-events-none" viewBox="0 0 200 50" fill="none">
-        <path d="M0 48 Q50 20 100 10 Q150 0 200 5" stroke="#c23b3b" strokeWidth="1" strokeDasharray="4 4" opacity="0.3" />
+        <path d="M0 48 Q50 20 100 10 Q150 0 200 5" stroke="#790f11" strokeWidth="1" strokeDasharray="4 4" opacity="0.3" />
       </svg>
 
       <Crosshair x="50%" y="16px" />
@@ -181,7 +180,7 @@ export default function Features() {
 function Crosshair({ x, y }: { x: string; y: string }) {
   return (
     <div
-      className="absolute font-mono text-sm text-white/[0.08] pointer-events-none select-none"
+      className="absolute font-mono text-sm text-text-primary/[0.08] pointer-events-none select-none"
       style={{ left: x, top: y }}
     >
       +

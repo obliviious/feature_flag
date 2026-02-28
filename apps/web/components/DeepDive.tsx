@@ -22,15 +22,14 @@ export default function DeepDive() {
 
             <div className="grid sm:grid-cols-2 gap-8 mb-10">
               <ScrollReveal delay={1}>
-                {/* Globe icon */}
                 <div className="mb-4">
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                    <circle cx="24" cy="24" r="18" stroke="#e8e4de" strokeWidth="0.8" fill="none" opacity="0.3" />
-                    <ellipse cx="24" cy="24" rx="10" ry="18" stroke="#e8e4de" strokeWidth="0.6" fill="none" opacity="0.25" />
-                    <line x1="6" y1="24" x2="42" y2="24" stroke="#e8e4de" strokeWidth="0.5" opacity="0.2" />
-                    <line x1="24" y1="6" x2="24" y2="42" stroke="#e8e4de" strokeWidth="0.5" opacity="0.2" />
-                    <ellipse cx="24" cy="16" rx="15" ry="3" stroke="#e8e4de" strokeWidth="0.4" fill="none" opacity="0.15" />
-                    <ellipse cx="24" cy="32" rx="15" ry="3" stroke="#e8e4de" strokeWidth="0.4" fill="none" opacity="0.15" />
+                    <circle cx="24" cy="24" r="18" stroke="#C1BCA9" strokeWidth="0.8" fill="none" opacity="0.3" />
+                    <ellipse cx="24" cy="24" rx="10" ry="18" stroke="#C1BCA9" strokeWidth="0.6" fill="none" opacity="0.25" />
+                    <line x1="6" y1="24" x2="42" y2="24" stroke="#C1BCA9" strokeWidth="0.5" opacity="0.2" />
+                    <line x1="24" y1="6" x2="24" y2="42" stroke="#C1BCA9" strokeWidth="0.5" opacity="0.2" />
+                    <ellipse cx="24" cy="16" rx="15" ry="3" stroke="#C1BCA9" strokeWidth="0.4" fill="none" opacity="0.15" />
+                    <ellipse cx="24" cy="32" rx="15" ry="3" stroke="#C1BCA9" strokeWidth="0.4" fill="none" opacity="0.15" />
                   </svg>
                 </div>
                 <p className="text-text-secondary text-[0.9rem] leading-relaxed">
@@ -42,15 +41,14 @@ export default function DeepDive() {
               </ScrollReveal>
 
               <ScrollReveal delay={2}>
-                {/* Crosshair/target icon */}
                 <div className="mb-4">
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                    <line x1="24" y1="6" x2="24" y2="18" stroke="#e8e4de" strokeWidth="1" opacity="0.3" />
-                    <line x1="24" y1="30" x2="24" y2="42" stroke="#e8e4de" strokeWidth="1" opacity="0.3" />
-                    <line x1="6" y1="24" x2="18" y2="24" stroke="#e8e4de" strokeWidth="1" opacity="0.3" />
-                    <line x1="30" y1="24" x2="42" y2="24" stroke="#e8e4de" strokeWidth="1" opacity="0.3" />
-                    <path d="M30 18 L36 18 L36 12" stroke="#e8e4de" strokeWidth="0.8" fill="none" opacity="0.3" />
-                    <path d="M18 30 L12 30 L12 36" stroke="#e8e4de" strokeWidth="0.8" fill="none" opacity="0.3" />
+                    <line x1="24" y1="6" x2="24" y2="18" stroke="#C1BCA9" strokeWidth="1" opacity="0.3" />
+                    <line x1="24" y1="30" x2="24" y2="42" stroke="#C1BCA9" strokeWidth="1" opacity="0.3" />
+                    <line x1="6" y1="24" x2="18" y2="24" stroke="#C1BCA9" strokeWidth="1" opacity="0.3" />
+                    <line x1="30" y1="24" x2="42" y2="24" stroke="#C1BCA9" strokeWidth="1" opacity="0.3" />
+                    <path d="M30 18 L36 18 L36 12" stroke="#C1BCA9" strokeWidth="0.8" fill="none" opacity="0.3" />
+                    <path d="M18 30 L12 30 L12 36" stroke="#C1BCA9" strokeWidth="0.8" fill="none" opacity="0.3" />
                   </svg>
                 </div>
                 <p className="text-text-secondary text-[0.9rem] leading-relaxed">
@@ -85,10 +83,8 @@ export default function DeepDive() {
 
               {/* Globe wireframe */}
               <svg viewBox="0 0 400 400" className="absolute inset-0 w-full h-full" fill="none">
-                {/* Main circle */}
-                <circle cx="200" cy="200" r="140" stroke="#e8e4de" strokeWidth="0.6" opacity="0.15" />
+                <circle cx="200" cy="200" r="140" stroke="#C1BCA9" strokeWidth="0.6" opacity="0.15" />
 
-                {/* Latitude lines */}
                 {[-80, -40, 0, 40, 80].map((offset) => (
                   <ellipse
                     key={`lat-${offset}`}
@@ -96,13 +92,12 @@ export default function DeepDive() {
                     cy={200 + offset}
                     rx={Math.sqrt(140 * 140 - offset * offset)}
                     ry={12}
-                    stroke="#e8e4de"
+                    stroke="#C1BCA9"
                     strokeWidth="0.4"
                     opacity="0.08"
                   />
                 ))}
 
-                {/* Longitude lines */}
                 {[0, 30, 60, 90, 120, 150].map((angle) => {
                   const rad = (angle * Math.PI) / 180;
                   const rx = 140 * Math.cos(rad);
@@ -113,10 +108,9 @@ export default function DeepDive() {
                       cy="200"
                       rx={Math.abs(rx) || 1}
                       ry="140"
-                      stroke="#e8e4de"
+                      stroke="#C1BCA9"
                       strokeWidth="0.4"
                       opacity="0.08"
-                      transform={angle > 0 ? undefined : undefined}
                     />
                   );
                 })}
@@ -127,7 +121,7 @@ export default function DeepDive() {
                   cy="200"
                   rx="170"
                   ry="50"
-                  stroke="#c23b3b"
+                  stroke="#790f11"
                   strokeWidth="1.2"
                   opacity="0.4"
                   transform="rotate(-20 200 200)"
@@ -139,7 +133,7 @@ export default function DeepDive() {
                   cy="200"
                   rx="155"
                   ry="45"
-                  stroke="#c23b3b"
+                  stroke="#790f11"
                   strokeWidth="0.6"
                   opacity="0.2"
                   strokeDasharray="6 6"
@@ -156,7 +150,7 @@ export default function DeepDive() {
                     cx={x}
                     cy={y}
                     r="3"
-                    fill={i < 3 ? "#c23b3b" : "#555"}
+                    fill={i < 3 ? "#790f11" : "#5c5848"}
                     opacity={i < 3 ? 0.6 : 0.3}
                   />
                 ))}

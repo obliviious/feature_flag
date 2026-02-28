@@ -488,7 +488,7 @@ let result = evaluator.evaluate(
           lang="json"
           code={`{
   "key": "variant-a",
-  "value": { "color": "#c23b3b", "layout": "grid" },
+  "value": { "color": "#790f11", "layout": "grid" },
   "description": "Red theme with grid layout"
 }`}
         />
@@ -1164,7 +1164,7 @@ export default function DocsPage() {
           font-size: 1.25rem;
           margin-top: 2rem;
           margin-bottom: 0.75rem;
-          color: #e8e4de;
+          color: #C1BCA9;
         }
 
         .doc-prose p {
@@ -1189,7 +1189,7 @@ export default function DocsPage() {
 
         .doc-prose ul li::before {
           content: ">>>";
-          color: #c23b3b;
+          color: #790f11;
           font-family: var(--font-mono), monospace;
           font-size: 0.6rem;
           margin-right: 0.5rem;
@@ -1207,14 +1207,14 @@ export default function DocsPage() {
         .doc-prose code {
           font-family: var(--font-mono), monospace;
           font-size: 0.8rem;
-          background: #1a1a1a;
+          background: #1e1c16;
           border: 1px solid #222;
           padding: 1px 5px;
-          color: #c23b3b;
+          color: #790f11;
         }
 
         .doc-prose strong {
-          color: #e8e4de;
+          color: #C1BCA9;
           font-weight: 600;
         }
 
@@ -1233,13 +1233,13 @@ export default function DocsPage() {
           color: #777;
           text-align: left;
           padding: 8px 12px;
-          border-bottom: 1px solid #2a2a2a;
-          background: #151515;
+          border-bottom: 1px solid #2a2720;
+          background: #1a1814;
         }
 
         .doc-prose td {
           padding: 8px 12px;
-          border-bottom: 1px solid #1e1e1e;
+          border-bottom: 1px solid #2a2720;
           color: #999;
         }
 
@@ -1249,7 +1249,7 @@ export default function DocsPage() {
 
         .doc-diagram {
           background: #111;
-          border: 1px solid #1e1e1e;
+          border: 1px solid #2a2720;
           padding: 2rem;
           margin: 1.5rem 0;
         }

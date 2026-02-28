@@ -2,89 +2,61 @@
   "node": {
     "2c4d295d8122b1c1cd7dd2a96bb7145c8c9ae2b9": {
       "workers": {
-        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-in/[[...sign-in]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-up/[[...sign-up]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
+        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
       },
       "layer": {
-        "app/page": "rsc",
-        "app/sign-in/[[...sign-in]]/page": "rsc",
-        "app/sign-up/[[...sign-up]]/page": "rsc"
+        "app/page": "rsc"
       }
     },
     "b495b243dae41b6d3e7d32151421cf9aba47da49": {
       "workers": {
-        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-in/[[...sign-in]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-up/[[...sign-up]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
+        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
       },
       "layer": {
-        "app/page": "rsc",
-        "app/sign-in/[[...sign-in]]/page": "rsc",
-        "app/sign-up/[[...sign-up]]/page": "rsc"
+        "app/page": "rsc"
       }
     },
     "5e615a896cc6b0e4fd63e7f479ec2b27cf0c48d0": {
       "workers": {
-        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-in/[[...sign-in]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-up/[[...sign-up]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
+        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
       },
       "layer": {
-        "app/page": "rsc",
-        "app/sign-in/[[...sign-in]]/page": "rsc",
-        "app/sign-up/[[...sign-up]]/page": "rsc"
+        "app/page": "rsc"
       }
     },
     "813c5854505c453f0712e593c6f409a97df7e733": {
       "workers": {
-        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-in/[[...sign-in]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-up/[[...sign-up]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
+        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
       },
       "layer": {
-        "app/page": "rsc",
-        "app/sign-in/[[...sign-in]]/page": "rsc",
-        "app/sign-up/[[...sign-up]]/page": "rsc"
+        "app/page": "rsc"
       }
     },
     "9b489831c9dce0011e32f698f8e67c070433f97d": {
       "workers": {
-        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-in/[[...sign-in]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-up/[[...sign-up]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
+        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
       },
       "layer": {
-        "app/page": "rsc",
-        "app/sign-in/[[...sign-in]]/page": "rsc",
-        "app/sign-up/[[...sign-up]]/page": "rsc"
+        "app/page": "rsc"
       }
     },
     "ad0f8b799e5a387d77b44a1ad08a07d1b32492b4": {
       "workers": {
-        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-in/[[...sign-in]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!",
-        "app/sign-up/[[...sign-up]]/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
+        "app/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fserver%2Fkeyless-custom-headers.js%22%2C%5B%22formatMetadataHeaders%22%2C%22collectKeylessMetadata%22%5D%5D%2C%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fkeyless-actions.js%22%2C%5B%22syncKeylessConfigAction%22%2C%22createOrReadKeylessAction%22%2C%22detectKeylessEnvDriftAction%22%2C%22deleteKeylessAction%22%5D%5D%5D&__client_imported__=!"
       },
       "layer": {
-        "app/page": "rsc",
-        "app/sign-in/[[...sign-in]]/page": "rsc",
-        "app/sign-up/[[...sign-up]]/page": "rsc"
+        "app/page": "rsc"
       }
     },
     "dee4ab110a2a9697b78af3c81513ba3ee66b83e8": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fserver-actions.js%22%2C%5B%22invalidateCacheAction%22%5D%5D%5D&__client_imported__=true!",
-        "app/sign-in/[[...sign-in]]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fserver-actions.js%22%2C%5B%22invalidateCacheAction%22%5D%5D%5D&__client_imported__=true!",
-        "app/sign-up/[[...sign-up]]/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fserver-actions.js%22%2C%5B%22invalidateCacheAction%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fadityaraj%2FProjects%2Ffeature_flag%2Fapps%2Fweb%2Fnode_modules%2F%40clerk%2Fnextjs%2Fdist%2Fesm%2Fapp-router%2Fserver-actions.js%22%2C%5B%22invalidateCacheAction%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser",
-        "app/sign-in/[[...sign-in]]/page": "action-browser",
-        "app/sign-up/[[...sign-up]]/page": "action-browser"
+        "app/page": "action-browser"
       }
     }
   },
   "edge": {},
-  "encryptionKey": "KtletcsEd8MsnIEyAmpzcVbzaxxwWLiomolUKIe/83s="
+  "encryptionKey": "Vlrx7KTTZPaRy8jwY2BhySW/VBvamQRBHyLFMjV0y9s="
 }

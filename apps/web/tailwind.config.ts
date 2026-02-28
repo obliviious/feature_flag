@@ -9,28 +9,29 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          primary: "#0d0d0d",
-          secondary: "#111111",
-          card: "#151515",
-          "card-hover": "#1c1c1c",
-          elevated: "#1a1a1a",
+          primary: "#141311",
+          secondary: "#17150f",
+          card: "#1a1814",
+          "card-hover": "#211f19",
+          elevated: "#1e1c16",
         },
         border: {
-          DEFAULT: "#1e1e1e",
-          light: "#2a2a2a",
-          lighter: "#333333",
+          DEFAULT: "#2a2720",
+          light: "#352f26",
+          lighter: "#3d3830",
         },
         accent: {
-          red: "#c23b3b",
-          "red-hover": "#d44444",
-          "red-dark": "#8b2020",
-          "red-glow": "rgba(194, 59, 59, 0.15)",
+          red: "#790f11",
+          "red-hover": "#8e1517",
+          "red-dark": "#5c0a0c",
+          "red-glow": "rgba(121, 15, 17, 0.15)",
+          "red-light": "#a3191c",
         },
         text: {
-          primary: "#e8e4de",
-          secondary: "#999999",
-          muted: "#555555",
-          label: "#777777",
+          primary: "#C1BCA9",
+          secondary: "#8a8574",
+          muted: "#5c5848",
+          label: "#7a7565",
         },
       },
       fontFamily: {
@@ -53,6 +54,8 @@ const config: Config = {
         "draw-line": "drawLine 1.5s ease-out forwards",
         pulse_slow: "pulse 4s ease-in-out infinite",
         "ticker": "ticker 30s linear infinite",
+        "float": "float 6s ease-in-out infinite",
+        "pulse-ring": "pulseRing 2s ease-out infinite",
       },
       keyframes: {
         fadeIn: {
@@ -78,6 +81,14 @@ const config: Config = {
         ticker: {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        pulseRing: {
+          "0%": { transform: "scale(1)", opacity: "0.6" },
+          "100%": { transform: "scale(2.5)", opacity: "0" },
         },
       },
     },

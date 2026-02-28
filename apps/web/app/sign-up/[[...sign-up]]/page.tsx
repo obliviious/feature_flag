@@ -26,10 +26,10 @@ export default function SignUpPage() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <svg viewBox="0 0 28 28" fill="none" className="w-7 h-7">
-            <rect x="2" y="4" width="16" height="20" rx="1" stroke="#c23b3b" strokeWidth="1.5" fill="none" />
-            <path d="M18 8L26 4V24L18 20" stroke="#c23b3b" strokeWidth="1.5" fill="rgba(194,59,59,0.15)" />
-            <rect x="6" y="9" width="8" height="1.5" rx="0.5" fill="#c23b3b" opacity="0.6" />
-            <rect x="6" y="13" width="5" height="1.5" rx="0.5" fill="#c23b3b" opacity="0.4" />
+            <rect x="2" y="4" width="16" height="20" rx="1" stroke="#790f11" strokeWidth="1.5" fill="none" />
+            <path d="M18 8L26 4V24L18 20" stroke="#790f11" strokeWidth="1.5" fill="rgba(121,15,17,0.15)" />
+            <rect x="6" y="9" width="8" height="1.5" rx="0.5" fill="#790f11" opacity="0.6" />
+            <rect x="6" y="13" width="5" height="1.5" rx="0.5" fill="#790f11" opacity="0.4" />
           </svg>
           <span className="font-mono text-sm tracking-wider text-text-primary group-hover:text-accent-red transition-colors">
             FLAGFORGE
@@ -89,8 +89,8 @@ export default function SignUpPage() {
         {/* Mobile logo */}
         <Link href="/" className="lg:hidden flex items-center gap-2.5 mb-10 group">
           <svg viewBox="0 0 28 28" fill="none" className="w-7 h-7">
-            <rect x="2" y="4" width="16" height="20" rx="1" stroke="#c23b3b" strokeWidth="1.5" fill="none" />
-            <path d="M18 8L26 4V24L18 20" stroke="#c23b3b" strokeWidth="1.5" fill="rgba(194,59,59,0.15)" />
+            <rect x="2" y="4" width="16" height="20" rx="1" stroke="#790f11" strokeWidth="1.5" fill="none" />
+            <path d="M18 8L26 4V24L18 20" stroke="#790f11" strokeWidth="1.5" fill="rgba(121,15,17,0.15)" />
           </svg>
           <span className="font-mono text-sm tracking-wider text-text-primary">FLAGFORGE</span>
         </Link>
@@ -139,7 +139,7 @@ export default function SignUpPage() {
 function Crosshair({ x, y }: { x: string; y: string }) {
   return (
     <div
-      className="absolute font-mono text-sm text-white/[0.06] pointer-events-none select-none"
+      className="absolute font-mono text-sm text-text-primary/[0.06] pointer-events-none select-none"
       style={{ left: x, top: y }}
     >
       +

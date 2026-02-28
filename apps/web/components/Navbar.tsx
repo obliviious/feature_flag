@@ -27,10 +27,10 @@ export default function Navbar() {
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-7 h-7 relative">
             <svg viewBox="0 0 28 28" fill="none" className="w-full h-full">
-              <rect x="2" y="4" width="16" height="20" rx="1" stroke="#c23b3b" strokeWidth="1.5" fill="none" />
-              <path d="M18 8L26 4V24L18 20" stroke="#c23b3b" strokeWidth="1.5" fill="rgba(194,59,59,0.15)" />
-              <rect x="6" y="9" width="8" height="1.5" rx="0.5" fill="#c23b3b" opacity="0.6" />
-              <rect x="6" y="13" width="5" height="1.5" rx="0.5" fill="#c23b3b" opacity="0.4" />
+              <rect x="2" y="4" width="16" height="20" rx="1" stroke="#790f11" strokeWidth="1.5" fill="none" />
+              <path d="M18 8L26 4V24L18 20" stroke="#790f11" strokeWidth="1.5" fill="rgba(121,15,17,0.15)" />
+              <rect x="6" y="9" width="8" height="1.5" rx="0.5" fill="#790f11" opacity="0.6" />
+              <rect x="6" y="13" width="5" height="1.5" rx="0.5" fill="#790f11" opacity="0.4" />
             </svg>
           </div>
           <span className="font-mono text-sm tracking-wider text-text-primary group-hover:text-accent-red transition-colors">
@@ -71,7 +71,7 @@ export default function Navbar() {
             </Link>
             <Link
               href="/sign-up"
-              className="font-mono text-label-xs uppercase px-5 py-2 bg-accent-red text-white hover:bg-accent-red-hover transition-colors"
+              className="font-mono text-label-xs uppercase px-5 py-2 bg-accent-red text-text-primary hover:bg-accent-red-hover transition-colors"
             >
               Get Started
             </Link>
@@ -87,8 +87,8 @@ export default function Navbar() {
             <UserButton
               appearance={{
                 elements: {
-                  avatarBox: "w-8 h-8 rounded-none border border-[#2a2a2a]",
-                  userButtonPopoverCard: "bg-[#151515] border border-[#1e1e1e] rounded-none",
+                  avatarBox: "w-8 h-8 rounded-none border border-[#352f26]",
+                  userButtonPopoverCard: "bg-[#1a1814] border border-[#2a2720] rounded-none",
                 },
               }}
             />
@@ -101,7 +101,7 @@ export default function Navbar() {
             <UserButton
               appearance={{
                 elements: {
-                  avatarBox: "w-7 h-7 rounded-none border border-[#2a2a2a]",
+                  avatarBox: "w-7 h-7 rounded-none border border-[#352f26]",
                 },
               }}
             />
@@ -150,7 +150,7 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/sign-up"
-                className="font-mono text-label-sm uppercase px-5 py-3 bg-accent-red text-white text-center hover:bg-accent-red-hover transition-colors"
+                className="font-mono text-label-sm uppercase px-5 py-3 bg-accent-red text-text-primary text-center hover:bg-accent-red-hover transition-colors"
                 onClick={() => setMobileOpen(false)}
               >
                 Get Started
@@ -159,7 +159,7 @@ export default function Navbar() {
             <SignedIn>
               <Link
                 href="/dashboard"
-                className="font-mono text-label-sm uppercase px-5 py-3 bg-accent-red text-white text-center hover:bg-accent-red-hover transition-colors"
+                className="font-mono text-label-sm uppercase px-5 py-3 bg-accent-red text-text-primary text-center hover:bg-accent-red-hover transition-colors"
                 onClick={() => setMobileOpen(false)}
               >
                 Dashboard

@@ -96,7 +96,7 @@ export default function Stats() {
                   {/* Red area fill under the red line at the end */}
                   <path
                     d="M540,75 L630,48 L630,224 L540,225 Z"
-                    fill="rgba(194,59,59,0.08)"
+                    fill="rgba(121,15,17,0.08)"
                   />
                   <path
                     d="M540,75 L630,48 L630,224 L540,225 Z"
@@ -106,16 +106,16 @@ export default function Stats() {
                   {/* Hatching pattern def */}
                   <defs>
                     <pattern id="hatch-red" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(-45)">
-                      <line x1="0" y1="0" x2="0" y2="4" stroke="#c23b3b" strokeWidth="0.5" opacity="0.3" />
+                      <line x1="0" y1="0" x2="0" y2="4" stroke="#790f11" strokeWidth="0.5" opacity="0.3" />
                     </pattern>
                   </defs>
 
                   {/* Data point on red line end */}
-                  <circle cx="630" cy="48" r="4" fill="#c23b3b" opacity="0.8" />
-                  <circle cx="630" cy="48" r="7" fill="none" stroke="#c23b3b" strokeWidth="0.8" opacity="0.3" />
+                  <circle cx="630" cy="48" r="4" fill="#790f11" opacity="0.8" />
+                  <circle cx="630" cy="48" r="7" fill="none" stroke="#790f11" strokeWidth="0.8" opacity="0.3" />
 
                   {/* Data point on gray line end */}
-                  <circle cx="630" cy="224" r="3" fill="#555" />
+                  <circle cx="630" cy="224" r="3" fill="#5c5848" />
 
                   {/* 4.7X label */}
                   <text x="655" y="140" className="fill-accent-red font-mono font-bold" fontSize="14">
@@ -124,15 +124,15 @@ export default function Stats() {
 
                   {/* Legend */}
                   <g transform="translate(280, 308)">
-                    <line x1="0" y1="0" x2="20" y2="0" stroke="#555" strokeWidth="2" />
-                    <circle cx="10" cy="0" r="2.5" fill="#555" />
+                    <line x1="0" y1="0" x2="20" y2="0" stroke="#5c5848" strokeWidth="2" />
+                    <circle cx="10" cy="0" r="2.5" fill="#5c5848" />
                     <text x="28" y="3.5" className="fill-text-muted font-mono" fontSize="9.5">
                       Traditional Deploys
                     </text>
                   </g>
                   <g transform="translate(460, 308)">
-                    <line x1="0" y1="0" x2="20" y2="0" stroke="#c23b3b" strokeWidth="2" />
-                    <circle cx="10" cy="0" r="2.5" fill="#c23b3b" />
+                    <line x1="0" y1="0" x2="20" y2="0" stroke="#790f11" strokeWidth="2" />
+                    <circle cx="10" cy="0" r="2.5" fill="#790f11" />
                     <text x="28" y="3.5" className="fill-text-muted font-mono" fontSize="9.5">
                       Flag-Protected Deploys
                     </text>

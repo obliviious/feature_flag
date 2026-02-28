@@ -4,6 +4,7 @@
 
 /* ============================================================
    FlagForge Design System — Dark Technical Blueprint Aesthetic
+   Colors: bg #141311 | primary #790f11 | text #C1BCA9
    ============================================================ */
 
 @layer base {
@@ -18,15 +19,15 @@
   }
 
   body {
-    background-color: #0d0d0d;
-    color: #e8e4de;
+    background-color: #141311;
+    color: #C1BCA9;
     font-family: "DM Sans", system-ui, sans-serif;
     overflow-x: hidden;
   }
 
   ::selection {
-    background-color: rgba(194, 59, 59, 0.35);
-    color: #fff;
+    background-color: rgba(121, 15, 17, 0.45);
+    color: #C1BCA9;
   }
 
   /* Custom Scrollbar */
@@ -34,14 +35,14 @@
     width: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #0d0d0d;
+    background: #141311;
   }
   ::-webkit-scrollbar-thumb {
-    background: #333;
+    background: #3d3830;
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: #5c5848;
   }
 }
 
@@ -55,8 +56,8 @@
       -45deg,
       transparent,
       transparent 1.5px,
-      rgba(255, 255, 255, 0.018) 1.5px,
-      rgba(255, 255, 255, 0.018) 3px
+      rgba(193, 188, 169, 0.02) 1.5px,
+      rgba(193, 188, 169, 0.02) 3px
     );
   }
 
@@ -65,8 +66,8 @@
       -45deg,
       transparent,
       transparent 1px,
-      rgba(255, 255, 255, 0.025) 1px,
-      rgba(255, 255, 255, 0.025) 2px
+      rgba(193, 188, 169, 0.03) 1px,
+      rgba(193, 188, 169, 0.03) 2px
     );
   }
 
@@ -75,8 +76,8 @@
       -45deg,
       transparent,
       transparent 2px,
-      rgba(194, 59, 59, 0.12) 2px,
-      rgba(194, 59, 59, 0.12) 4px
+      rgba(121, 15, 17, 0.12) 2px,
+      rgba(121, 15, 17, 0.12) 4px
     );
   }
 
@@ -86,8 +87,8 @@
       90deg,
       transparent,
       transparent 3px,
-      rgba(255, 255, 255, 0.015) 3px,
-      rgba(255, 255, 255, 0.015) 4px
+      rgba(193, 188, 169, 0.015) 3px,
+      rgba(193, 188, 169, 0.015) 4px
     );
   }
 
@@ -95,7 +96,7 @@
   .grid-dots {
     background-image: radial-gradient(
       circle,
-      rgba(255, 255, 255, 0.06) 1px,
+      rgba(193, 188, 169, 0.06) 1px,
       transparent 1px
     );
     background-size: 24px 24px;
@@ -116,7 +117,7 @@
   position: absolute;
   font-family: "JetBrains Mono", monospace;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.12);
+  color: rgba(193, 188, 169, 0.12);
   line-height: 1;
   pointer-events: none;
 }
@@ -146,19 +147,19 @@
    ============================================================ */
 
 .grid-line-top {
-  border-top: 1px solid #1e1e1e;
+  border-top: 1px solid #2a2720;
 }
 
 .grid-line-bottom {
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid #2a2720;
 }
 
 .grid-line-left {
-  border-left: 1px solid #1e1e1e;
+  border-left: 1px solid #2a2720;
 }
 
 .grid-line-right {
-  border-right: 1px solid #1e1e1e;
+  border-right: 1px solid #2a2720;
 }
 
 /* ============================================================
@@ -168,13 +169,13 @@
 .label-badge {
   display: inline-block;
   padding: 4px 12px;
-  border: 1px solid #333;
+  border: 1px solid #3d3830;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.65rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #999;
-  background: rgba(255, 255, 255, 0.03);
+  color: #8a8574;
+  background: rgba(193, 188, 169, 0.03);
 }
 
 .number-badge {
@@ -183,10 +184,10 @@
   justify-content: center;
   width: 36px;
   height: 24px;
-  background: #2a2a2a;
+  background: #2a2720;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.65rem;
-  color: #999;
+  color: #8a8574;
 }
 
 /* ============================================================
@@ -198,17 +199,17 @@
   font-size: 0.7rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #c23b3b;
+  color: #790f11;
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-color: rgba(194, 59, 59, 0.4);
+  text-decoration-color: rgba(121, 15, 17, 0.4);
   transition: all 0.25s ease;
   cursor: pointer;
 }
 
 .red-link:hover {
-  text-decoration-color: #c23b3b;
-  color: #d44444;
+  text-decoration-color: #790f11;
+  color: #a3191c;
 }
 
 /* ============================================================
@@ -237,8 +238,8 @@
    ============================================================ */
 
 .card-technical {
-  background: #151515;
-  border: 1px solid #1e1e1e;
+  background: #1a1814;
+  border: 1px solid #2a2720;
   transition: all 0.35s ease;
   position: relative;
 }
@@ -251,15 +252,15 @@
   transition: opacity 0.35s ease;
   background: linear-gradient(
     135deg,
-    rgba(194, 59, 59, 0.03) 0%,
+    rgba(121, 15, 17, 0.04) 0%,
     transparent 50%
   );
   pointer-events: none;
 }
 
 .card-technical:hover {
-  border-color: #2a2a2a;
-  background: #181818;
+  border-color: #352f26;
+  background: #1e1c16;
 }
 
 .card-technical:hover::before {
@@ -271,8 +272,8 @@
    ============================================================ */
 
 .cta-bar {
-  background: #c23b3b;
-  color: #fff;
+  background: #790f11;
+  color: #C1BCA9;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.8rem;
   letter-spacing: 0.14em;
@@ -293,14 +294,14 @@
     -45deg,
     transparent,
     transparent 2px,
-    rgba(255, 255, 255, 0.06) 2px,
-    rgba(255, 255, 255, 0.06) 4px
+    rgba(193, 188, 169, 0.06) 2px,
+    rgba(193, 188, 169, 0.06) 4px
   );
   pointer-events: none;
 }
 
 .cta-bar:hover {
-  background: #d44444;
+  background: #8e1517;
 }
 
 /* ============================================================
@@ -330,19 +331,19 @@
    ============================================================ */
 
 .chart-grid-line {
-  stroke: #1e1e1e;
+  stroke: #2a2720;
   stroke-width: 0.5;
 }
 
 .chart-line-traditional {
   fill: none;
-  stroke: #555;
+  stroke: #5c5848;
   stroke-width: 2;
 }
 
 .chart-line-flagforge {
   fill: none;
-  stroke: #c23b3b;
+  stroke: #790f11;
   stroke-width: 2.5;
 }
 
@@ -356,7 +357,7 @@
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.025;
+  opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
