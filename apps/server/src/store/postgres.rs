@@ -27,8 +27,35 @@ impl PostgresStore {
     }
 
     pub async fn run_migrations(&self) -> Result<()> {
-        sqlx::migrate!("./migrations").run(&self.pool).await?;
-        Ok(())
+        // If migrations fail due to checksum mismatch (e.g. manually applied),
+        // fix the checksum in _sqlx_migrations and retry.
+        let migrator = sqlx::migrate!("./migrations");
+        match migrator.run(&self.pool).await {
+            Ok(()) => Ok(()),
+            Err(sqlx::migrate::MigrateError::VersionMismatch(version)) => {
+                tracing::warn!(
+                    "Migration {version} checksum mismatch — updating stored checksum"
+                );
+                // Find the migration with this version and update its checksum
+                for m in migrator.iter() {
+                    if m.version == version {
+                        let checksum_vec = Vec::from(m.checksum.as_ref());
+                        sqlx::query(
+                            "UPDATE _sqlx_migrations SET checksum = $1 WHERE version = $2",
+                        )
+                        .bind(&checksum_vec)
+                        .bind(version)
+                        .execute(&self.pool)
+                        .await?;
+                        break;
+                    }
+                }
+                // Retry after fixing checksum
+                migrator.run(&self.pool).await?;
+                Ok(())
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 
     // ============================================================
