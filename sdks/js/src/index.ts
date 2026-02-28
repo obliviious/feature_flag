@@ -1,6 +1,7 @@
-export { FlagForgeClient, type FlagForgeConfig } from "./client";
+export { FlagForgeClient, type FlagForgeConfig, parseSSE } from "./client";
 export { Evaluator } from "./evaluator";
 export { murmurhash3, bucket } from "./hasher";
+export { transformFlagsConfig, transformEvaluationResult } from "./transform";
 export type {
   FlagConfig,
   FlagType,
@@ -14,4 +15,4 @@ export type {
   SegmentConstraint,
   Operator,
   MatchType,
-} from "@flagforge/shared-types";
+} from "./types";

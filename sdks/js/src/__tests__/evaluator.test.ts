@@ -6,7 +6,7 @@ import type {
   Segment,
   Variant,
   EvaluationContext,
-} from "@flagforge/shared-types";
+} from "../types";
 
 function makeVariant(key: string, value: unknown): Variant {
   return {

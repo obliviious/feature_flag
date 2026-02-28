@@ -1,4 +1,5 @@
 packages:
   - "packages/shared-types"
   - "sdks/js"
+  - "sdks/react"
   - "apps/dashboard"

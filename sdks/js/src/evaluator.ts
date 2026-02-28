@@ -7,7 +7,7 @@ import type {
   Segment,
   TargetingRule,
   Variant,
-} from "@flagforge/shared-types";
+} from "./types";
 import { bucket } from "./hasher";
 import { evaluateOperator } from "./operators";
 
@@ -181,7 +181,7 @@ export class Evaluator {
 
     if (attrValue === undefined || attrValue === null) return false;
     return evaluateOperator(
-      operator as import("@flagforge/shared-types").Operator,
+      operator as import("./types").Operator,
       attrValue,
       values,
     );

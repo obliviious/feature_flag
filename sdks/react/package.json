@@ -1,7 +1,7 @@
 {
-  "name": "@flagforge/sdk-js",
-  "version": "0.2.0",
-  "description": "FlagForge JavaScript/TypeScript SDK — local evaluation + real-time streaming",
+  "name": "@flagforge/sdk-react",
+  "version": "0.1.0",
+  "description": "FlagForge React SDK — Provider + hooks for feature flag evaluation with real-time updates",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -27,11 +27,10 @@
     "feature-flags",
     "feature-toggles",
     "flagforge",
-    "flags",
+    "react",
+    "hooks",
+    "provider",
     "sdk",
-    "evaluation",
-    "targeting",
-    "rollout",
     "sse",
     "real-time"
   ],
@@ -40,10 +39,20 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/obliviious/feature_flag",
-    "directory": "sdks/js"
+    "directory": "sdks/react"
   },
-  "homepage": "https://github.com/obliviious/feature_flag/tree/main/sdks/js",
+  "homepage": "https://github.com/obliviious/feature_flag/tree/main/sdks/react",
+  "peerDependencies": {
+    "react": ">=17",
+    "@flagforge/sdk-js": ">=0.1.0"
+  },
   "devDependencies": {
+    "@flagforge/sdk-js": "workspace:*",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.0.0",
+    "jsdom": "^25.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.0"

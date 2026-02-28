@@ -1,4 +1,4 @@
-import type { Operator } from "@flagforge/shared-types";
+import type { Operator } from "./types";
 
 /**
  * Evaluate a constraint operator against a context attribute value.
