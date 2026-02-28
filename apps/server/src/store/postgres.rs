@@ -6,6 +6,12 @@ use uuid::Uuid;
 use super::models::*;
 use eval_core::types as eval;
 
+// Column lists with enum→TEXT casts for sqlx compatibility
+const FLAG_COLS: &str = "id, project_id, key, name, description, flag_type::TEXT AS flag_type, tags, archived, created_at, updated_at";
+const SEGMENT_COLS: &str = "id, project_id, key, name, description, match_type::TEXT AS match_type, created_at, updated_at";
+const CONSTRAINT_COLS: &str = "id, segment_id, attribute, operator::TEXT AS operator, values, sort_order, created_at";
+const SDK_KEY_COLS: &str = "id, environment_id, name, key_type::TEXT AS key_type, key_hash, key_prefix, last_used_at, created_at, revoked_at";
+
 /// PostgreSQL store for all FlagForge data.
 #[derive(Clone)]
 pub struct PostgresStore {
@@ -155,9 +161,9 @@ impl PostgresStore {
         tags: &[String],
     ) -> Result<FlagRow> {
         let row = sqlx::query_as::<_, FlagRow>(
-            "INSERT INTO flags (project_id, key, name, description, flag_type, tags)
+            &format!("INSERT INTO flags (project_id, key, name, description, flag_type, tags)
              VALUES ($1, $2, $3, $4, $5::flag_type, $6)
-             RETURNING *",
+             RETURNING {FLAG_COLS}"),
         )
         .bind(project_id)
         .bind(key)
@@ -176,7 +182,7 @@ impl PostgresStore {
         key: &str,
     ) -> Result<Option<FlagRow>> {
         let row = sqlx::query_as::<_, FlagRow>(
-            "SELECT * FROM flags WHERE project_id = $1 AND key = $2",
+            &format!("SELECT {FLAG_COLS} FROM flags WHERE project_id = $1 AND key = $2"),
         )
         .bind(project_id)
         .bind(key)
@@ -187,7 +193,7 @@ impl PostgresStore {
 
     pub async fn list_flags(&self, project_id: Uuid) -> Result<Vec<FlagRow>> {
         let rows = sqlx::query_as::<_, FlagRow>(
-            "SELECT * FROM flags WHERE project_id = $1 AND archived = FALSE ORDER BY created_at DESC",
+            &format!("SELECT {FLAG_COLS} FROM flags WHERE project_id = $1 AND archived = FALSE ORDER BY created_at DESC"),
         )
         .bind(project_id)
         .fetch_all(&self.pool)
@@ -204,13 +210,13 @@ impl PostgresStore {
         archived: Option<bool>,
     ) -> Result<FlagRow> {
         let row = sqlx::query_as::<_, FlagRow>(
-            "UPDATE flags SET
+            &format!("UPDATE flags SET
                 name = COALESCE($2, name),
                 description = COALESCE($3, description),
                 tags = COALESCE($4, tags),
                 archived = COALESCE($5, archived)
              WHERE id = $1
-             RETURNING *",
+             RETURNING {FLAG_COLS}"),
         )
         .bind(flag_id)
         .bind(name)
@@ -332,8 +338,8 @@ impl PostgresStore {
         match_type: &str,
     ) -> Result<SegmentRow> {
         let row = sqlx::query_as::<_, SegmentRow>(
-            "INSERT INTO segments (project_id, key, name, description, match_type)
-             VALUES ($1, $2, $3, $4, $5::match_type) RETURNING *",
+            &format!("INSERT INTO segments (project_id, key, name, description, match_type)
+             VALUES ($1, $2, $3, $4, $5::match_type) RETURNING {SEGMENT_COLS}"),
         )
         .bind(project_id)
         .bind(key)
@@ -346,7 +352,8 @@ impl PostgresStore {
     }
 
     pub async fn get_segment(&self, segment_id: Uuid) -> Result<Option<SegmentRow>> {
-        let row = sqlx::query_as::<_, SegmentRow>("SELECT * FROM segments WHERE id = $1")
+        let row = sqlx::query_as::<_, SegmentRow>(
+            &format!("SELECT {SEGMENT_COLS} FROM segments WHERE id = $1"))
             .bind(segment_id)
             .fetch_optional(&self.pool)
             .await?;
@@ -355,7 +362,7 @@ impl PostgresStore {
 
     pub async fn list_segments(&self, project_id: Uuid) -> Result<Vec<SegmentRow>> {
         let rows = sqlx::query_as::<_, SegmentRow>(
-            "SELECT * FROM segments WHERE project_id = $1 ORDER BY name",
+            &format!("SELECT {SEGMENT_COLS} FROM segments WHERE project_id = $1 ORDER BY name"),
         )
         .bind(project_id)
         .fetch_all(&self.pool)
@@ -372,8 +379,8 @@ impl PostgresStore {
         sort_order: i32,
     ) -> Result<SegmentConstraintRow> {
         let row = sqlx::query_as::<_, SegmentConstraintRow>(
-            "INSERT INTO segment_constraints (segment_id, attribute, operator, values, sort_order)
-             VALUES ($1, $2, $3::operator_type, $4, $5) RETURNING *",
+            &format!("INSERT INTO segment_constraints (segment_id, attribute, operator, values, sort_order)
+             VALUES ($1, $2, $3::operator_type, $4, $5) RETURNING {CONSTRAINT_COLS}"),
         )
         .bind(segment_id)
         .bind(attribute)
@@ -390,7 +397,7 @@ impl PostgresStore {
         segment_id: Uuid,
     ) -> Result<Vec<SegmentConstraintRow>> {
         let rows = sqlx::query_as::<_, SegmentConstraintRow>(
-            "SELECT * FROM segment_constraints WHERE segment_id = $1 ORDER BY sort_order",
+            &format!("SELECT {CONSTRAINT_COLS} FROM segment_constraints WHERE segment_id = $1 ORDER BY sort_order"),
         )
         .bind(segment_id)
         .fetch_all(&self.pool)
@@ -462,8 +469,8 @@ impl PostgresStore {
         key_prefix: &str,
     ) -> Result<SdkKeyRow> {
         let row = sqlx::query_as::<_, SdkKeyRow>(
-            "INSERT INTO sdk_keys (environment_id, name, key_type, key_hash, key_prefix)
-             VALUES ($1, $2, $3::sdk_key_type, $4, $5) RETURNING *",
+            &format!("INSERT INTO sdk_keys (environment_id, name, key_type, key_hash, key_prefix)
+             VALUES ($1, $2, $3::sdk_key_type, $4, $5) RETURNING {SDK_KEY_COLS}"),
         )
         .bind(environment_id)
         .bind(name)
@@ -477,7 +484,7 @@ impl PostgresStore {
 
     pub async fn get_sdk_key_by_hash(&self, key_hash: &str) -> Result<Option<SdkKeyRow>> {
         let row = sqlx::query_as::<_, SdkKeyRow>(
-            "SELECT * FROM sdk_keys WHERE key_hash = $1 AND revoked_at IS NULL",
+            &format!("SELECT {SDK_KEY_COLS} FROM sdk_keys WHERE key_hash = $1 AND revoked_at IS NULL"),
         )
         .bind(key_hash)
         .fetch_optional(&self.pool)
@@ -498,10 +505,11 @@ impl PostgresStore {
         project_id: Uuid,
     ) -> Result<Vec<SdkKeyRow>> {
         let rows = sqlx::query_as::<_, SdkKeyRow>(
-            "SELECT sk.* FROM sdk_keys sk
+            &format!("SELECT sk.id, sk.environment_id, sk.name, sk.key_type::TEXT AS key_type, sk.key_hash, sk.key_prefix, sk.last_used_at, sk.created_at, sk.revoked_at
+             FROM sdk_keys sk
              JOIN environments e ON sk.environment_id = e.id
              WHERE e.project_id = $1
-             ORDER BY sk.created_at DESC",
+             ORDER BY sk.created_at DESC"),
         )
         .bind(project_id)
         .fetch_all(&self.pool)
@@ -511,7 +519,7 @@ impl PostgresStore {
 
     pub async fn revoke_sdk_key(&self, key_id: Uuid) -> Result<SdkKeyRow> {
         let row = sqlx::query_as::<_, SdkKeyRow>(
-            "UPDATE sdk_keys SET revoked_at = NOW() WHERE id = $1 RETURNING *",
+            &format!("UPDATE sdk_keys SET revoked_at = NOW() WHERE id = $1 RETURNING {SDK_KEY_COLS}"),
         )
         .bind(key_id)
         .fetch_one(&self.pool)
