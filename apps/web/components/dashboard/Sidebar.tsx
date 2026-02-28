@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { useProject } from "@/lib/project-context";
 
@@ -129,10 +130,57 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const { user, isLoaded } = useUser();
-  const { project } = useProject();
+  const { project, projects, selectProject, api, refreshProjects } = useProject();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProject, setNewProject] = useState({ orgName: "", orgSlug: "", name: "", slug: "" });
+  const [creatingProject, setCreatingProject] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+        setShowNewProject(false);
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [dropdownOpen]);
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+
+  function autoSlug(name: string) {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
+
+  async function handleCreateProject() {
+    if (!newProject.name.trim() || !newProject.orgName.trim()) return;
+    setCreatingProject(true);
+    try {
+      await api.setup({
+        org_name: newProject.orgName.trim(),
+        org_slug: newProject.orgSlug.trim() || autoSlug(newProject.orgName),
+        project_name: newProject.name.trim(),
+        project_slug: newProject.slug.trim() || autoSlug(newProject.name),
+      });
+      await refreshProjects();
+      setShowNewProject(false);
+      setDropdownOpen(false);
+      setNewProject({ orgName: "", orgSlug: "", name: "", slug: "" });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setCreatingProject(false);
+    }
+  }
 
   return (
     <>
@@ -163,10 +211,15 @@ export default function Sidebar({
         </div>
 
         {/* Project selector */}
-        <div className="px-3 py-3 border-b border-border">
-          <button className="w-full flex items-center gap-2.5 px-2.5 py-2 bg-bg-card border border-border hover:border-border-lighter transition-colors group">
+        <div className="px-3 py-3 border-b border-border relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-2 bg-bg-card border border-border hover:border-border-lighter transition-colors group"
+          >
             <div className="w-6 h-6 bg-accent-red/10 border border-accent-red/20 flex items-center justify-center shrink-0">
-              <span className="font-mono text-[0.55rem] text-accent-red">FF</span>
+              <span className="font-mono text-[0.55rem] text-accent-red">
+                {project?.name?.charAt(0)?.toUpperCase() || "?"}
+              </span>
             </div>
             <div className="flex-1 text-left min-w-0">
               <div className="font-mono text-[0.65rem] text-text-primary truncate">
@@ -176,10 +229,108 @@ export default function Sidebar({
                 {project?.slug || "—"}
               </div>
             </div>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-text-muted shrink-0">
+            <svg
+              width="12" height="12" viewBox="0 0 12 12" fill="none"
+              className={`text-text-muted shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+            >
               <path d="M3 5l3 3 3-3" stroke="currentColor" strokeWidth="1.2" />
             </svg>
           </button>
+
+          {/* Dropdown */}
+          {dropdownOpen && (
+            <div className="absolute left-3 right-3 top-full mt-1 bg-bg-primary border border-border z-50 shadow-xl">
+              {!showNewProject ? (
+                <>
+                  {/* Existing projects */}
+                  <div className="max-h-48 overflow-y-auto">
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          selectProject(p.id);
+                          setDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-bg-card transition-colors ${
+                          project?.id === p.id ? "bg-bg-card" : ""
+                        }`}
+                      >
+                        <div className="w-5 h-5 bg-accent-red/10 border border-accent-red/20 flex items-center justify-center shrink-0">
+                          <span className="font-mono text-[0.5rem] text-accent-red">{p.name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-mono text-[0.6rem] text-text-primary truncate">{p.name}</div>
+                          <div className="font-mono text-[0.45rem] text-text-muted truncate">{p.slug}</div>
+                        </div>
+                        {project?.id === p.id && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-accent-red shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Create new project */}
+                  <div className="border-t border-border">
+                    <button
+                      onClick={() => setShowNewProject(true)}
+                      className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-bg-card transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-accent-red shrink-0">
+                        <line x1="7" y1="2" x2="7" y2="12" stroke="currentColor" strokeWidth="1.2" />
+                        <line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" strokeWidth="1.2" />
+                      </svg>
+                      <span className="font-mono text-[0.6rem] text-accent-red uppercase tracking-wider">
+                        New Project
+                      </span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* New project form */
+                <div className="p-3 space-y-2.5">
+                  <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider mb-2">
+                    Create New Project
+                  </div>
+                  <input
+                    type="text"
+                    value={newProject.orgName}
+                    onChange={(e) => setNewProject({
+                      ...newProject,
+                      orgName: e.target.value,
+                      orgSlug: autoSlug(e.target.value),
+                    })}
+                    placeholder="Organization name"
+                    className="w-full bg-bg-card border border-border px-2.5 py-1.5 font-mono text-[0.6rem] text-text-primary outline-none focus:border-accent-red/50 transition-colors"
+                  />
+                  <input
+                    type="text"
+                    value={newProject.name}
+                    onChange={(e) => setNewProject({
+                      ...newProject,
+                      name: e.target.value,
+                      slug: autoSlug(e.target.value),
+                    })}
+                    placeholder="Project name"
+                    className="w-full bg-bg-card border border-border px-2.5 py-1.5 font-mono text-[0.6rem] text-text-primary outline-none focus:border-accent-red/50 transition-colors"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowNewProject(false)}
+                      className="flex-1 font-mono text-[0.5rem] uppercase tracking-wider px-2.5 py-1.5 border border-border text-text-muted hover:text-text-primary transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateProject}
+                      disabled={creatingProject || !newProject.name.trim() || !newProject.orgName.trim()}
+                      className="flex-1 font-mono text-[0.5rem] uppercase tracking-wider px-2.5 py-1.5 bg-accent-red text-white hover:bg-accent-red-hover transition-colors disabled:opacity-50"
+                    >
+                      {creatingProject ? "..." : "Create"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Navigation */}

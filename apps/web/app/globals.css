@@ -364,6 +364,27 @@
 }
 
 /* ============================================================
+   Clerk Auth Component Overrides
+   ============================================================ */
+
+/* Hide development mode badge & "Secured by Clerk" branding */
+.cl-internal-b3fm6y,
+.cl-internal-1dauvt,
+.cl-internal-17jngl {
+  display: none !important;
+}
+
+/* Ensure card inner background stays transparent */
+.cl-main {
+  background: transparent !important;
+}
+
+/* UserButton popover styling */
+.cl-userButtonPopoverCard {
+  border-radius: 0 !important;
+}
+
+/* ============================================================
    Ticker / Marquee
    ============================================================ */
 

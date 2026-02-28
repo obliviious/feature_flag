@@ -180,6 +180,17 @@ export function createApi(getToken: GetToken) {
         { method: "PATCH", body: JSON.stringify({ environment_id: environmentId, enabled }) }
       ),
 
+    updateFlag: (projectId: string, flagKey: string, data: {
+      name?: string;
+      description?: string;
+      tags?: string[];
+      archived?: boolean;
+    }) =>
+      request<Flag>(getToken, `${base(projectId)}/flags/${flagKey}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+
     deleteFlag: (projectId: string, flagKey: string) =>
       request<void>(getToken, `${base(projectId)}/flags/${flagKey}`, {
         method: "DELETE",
@@ -188,6 +199,16 @@ export function createApi(getToken: GetToken) {
     // Environments
     listEnvironments: (projectId: string) =>
       request<Environment[]>(getToken, `${base(projectId)}/environments`),
+
+    createEnvironment: (projectId: string, data: {
+      name: string;
+      slug: string;
+      color?: string;
+    }) =>
+      request<Environment>(getToken, `${base(projectId)}/environments`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
 
     // Segments
     listSegments: (projectId: string) =>

@@ -212,6 +212,19 @@ pub async fn create_flag(
 
     notify_config_change(&state, project_id).await;
 
+    let _ = state
+        .store
+        .create_audit_log(
+            project_id,
+            None,
+            "flag_created",
+            "flag",
+            Some(flag.id),
+            None,
+            None,
+        )
+        .await;
+
     let env_states = build_env_states(&state, flag.id, project_id).await?;
 
     Ok((
@@ -349,6 +362,19 @@ pub async fn update_flag(
 
     notify_config_change(&state, project_id).await;
 
+    let _ = state
+        .store
+        .create_audit_log(
+            project_id,
+            None,
+            "flag_updated",
+            "flag",
+            Some(updated.id),
+            None,
+            None,
+        )
+        .await;
+
     let variants = state
         .store
         .get_flag_variants(updated.id)
@@ -400,6 +426,19 @@ pub async fn delete_flag(
 
     notify_config_change(&state, project_id).await;
 
+    let _ = state
+        .store
+        .create_audit_log(
+            project_id,
+            None,
+            "flag_deleted",
+            "flag",
+            Some(flag.id),
+            None,
+            None,
+        )
+        .await;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -435,6 +474,19 @@ pub async fn toggle_flag(
             .publish_config_change(req.environment_id, version)
             .await;
     }
+
+    let _ = state
+        .store
+        .create_audit_log(
+            project_id,
+            None,
+            "flag_toggled",
+            "flag",
+            Some(flag.id),
+            None,
+            None,
+        )
+        .await;
 
     Ok(Json(serde_json::json!({
         "flag_key": flag_key,

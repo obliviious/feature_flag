@@ -1,7 +1,17 @@
 {
-  "/sign-in/[[...sign-in]]/page": "app/sign-in/[[...sign-in]]/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/proxy/[...path]/route": "app/api/proxy/[...path]/route.js",
   "/page": "app/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
+  "/sign-up/[[...sign-up]]/page": "app/sign-up/[[...sign-up]]/page.js",
+  "/sign-in/[[...sign-in]]/page": "app/sign-in/[[...sign-in]]/page.js",
+  "/docs/page": "app/docs/page.js",
+  "/pricing/page": "app/pricing/page.js",
+  "/blog/page": "app/blog/page.js",
   "/dashboard/audit-log/page": "app/dashboard/audit-log/page.js",
+  "/dashboard/segments/page": "app/dashboard/segments/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/flags/page": "app/dashboard/flags/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/dashboard/environments/page": "app/dashboard/environments/page.js",
   "/dashboard/sdk-keys/page": "app/dashboard/sdk-keys/page.js"
 }

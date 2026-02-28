@@ -101,6 +101,19 @@ pub async fn create_sdk_key(
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
 
+    let _ = state
+        .store
+        .create_audit_log(
+            _project_id,
+            None,
+            "sdk_key_created",
+            "sdk_key",
+            Some(key.id),
+            None,
+            None,
+        )
+        .await;
+
     Ok((
         StatusCode::CREATED,
         Json(CreateSdkKeyResponse {
@@ -129,6 +142,19 @@ pub async fn revoke_sdk_key(
         .revoke_sdk_key(key_id)
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+
+    let _ = state
+        .store
+        .create_audit_log(
+            _project_id,
+            None,
+            "sdk_key_revoked",
+            "sdk_key",
+            Some(key.id),
+            None,
+            None,
+        )
+        .await;
 
     Ok(Json(SdkKeyResponse {
         id: key.id.to_string(),

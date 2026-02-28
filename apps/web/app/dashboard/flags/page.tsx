@@ -19,14 +19,48 @@ function timeAgo(dateStr: string) {
   return `${days}d ago`;
 }
 
+interface VariantInput {
+  key: string;
+  value: string;
+  description: string;
+}
+
+const DEFAULT_BOOLEAN_VARIANTS: VariantInput[] = [
+  { key: "true", value: "true", description: "Enabled" },
+  { key: "false", value: "false", description: "Disabled" },
+];
+
+function parseVariantValue(value: string, flagType: string): unknown {
+  if (flagType === "boolean") return value === "true";
+  if (flagType === "number") return Number(value) || 0;
+  if (flagType === "json") {
+    try { return JSON.parse(value); } catch { return value; }
+  }
+  return value;
+}
+
 export default function FlagsPage() {
   const { project, api, loading: projectLoading } = useProject();
   const [search, setSearch] = useState("");
   const [filterEnv, setFilterEnv] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [newFlag, setNewFlag] = useState({ key: "", name: "", flag_type: "boolean", tags: "" });
   const [creating, setCreating] = useState(false);
+
+  // Create flag form state
+  const [newFlag, setNewFlag] = useState({
+    key: "",
+    name: "",
+    description: "",
+    flag_type: "boolean",
+    tags: "",
+  });
+  const [variants, setVariants] = useState<VariantInput[]>([...DEFAULT_BOOLEAN_VARIANTS]);
+  const [defaultVariantKey, setDefaultVariantKey] = useState("false");
+
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: flags, loading, error, refetch } = useApiData(
     () => (project ? api.listFlags(project.id) : Promise.resolve([])),
@@ -61,24 +95,78 @@ export default function FlagsPage() {
     }
   }
 
+  async function handleDelete(flagKey: string) {
+    setDeleting(true);
+    try {
+      await api.deleteFlag(project!.id, flagKey);
+      setDeleteTarget(null);
+      refetch();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function handleFlagTypeChange(type: string) {
+    setNewFlag({ ...newFlag, flag_type: type });
+    if (type === "boolean") {
+      setVariants([...DEFAULT_BOOLEAN_VARIANTS]);
+      setDefaultVariantKey("false");
+    } else {
+      setVariants([
+        { key: "on", value: type === "number" ? "1" : "on", description: "" },
+        { key: "off", value: type === "number" ? "0" : "off", description: "" },
+      ]);
+      setDefaultVariantKey("off");
+    }
+  }
+
+  function addVariant() {
+    setVariants([...variants, { key: "", value: "", description: "" }]);
+  }
+
+  function removeVariant(index: number) {
+    if (variants.length <= 2) return;
+    const next = variants.filter((_, i) => i !== index);
+    setVariants(next);
+    if (defaultVariantKey === variants[index].key) {
+      setDefaultVariantKey(next[0]?.key || "");
+    }
+  }
+
+  function updateVariant(index: number, field: keyof VariantInput, value: string) {
+    const next = [...variants];
+    next[index] = { ...next[index], [field]: value };
+    setVariants(next);
+  }
+
+  function resetCreateForm() {
+    setNewFlag({ key: "", name: "", description: "", flag_type: "boolean", tags: "" });
+    setVariants([...DEFAULT_BOOLEAN_VARIANTS]);
+    setDefaultVariantKey("false");
+  }
+
   async function handleCreate() {
     if (!newFlag.key.trim() || !newFlag.name.trim()) return;
+    if (variants.some((v) => !v.key.trim())) return;
     setCreating(true);
     try {
-      const defaultVariants = newFlag.flag_type === "boolean"
-        ? [{ key: "true", value: true }, { key: "false", value: false }]
-        : [{ key: "on", value: "on" }, { key: "off", value: "off" }];
-
       await api.createFlag(project!.id, {
         key: newFlag.key.trim(),
         name: newFlag.name.trim(),
+        description: newFlag.description.trim() || undefined,
         flag_type: newFlag.flag_type,
         tags: newFlag.tags ? newFlag.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-        variants: defaultVariants,
-        default_variant_key: defaultVariants[1].key,
+        variants: variants.map((v) => ({
+          key: v.key.trim(),
+          value: parseVariantValue(v.value, newFlag.flag_type),
+          description: v.description.trim() || undefined,
+        })),
+        default_variant_key: defaultVariantKey,
       });
       setShowCreate(false);
-      setNewFlag({ key: "", name: "", flag_type: "boolean", tags: "" });
+      resetCreateForm();
       refetch();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Create failed");
@@ -149,20 +237,20 @@ export default function FlagsPage() {
 
       {/* Flags table */}
       <div className="border border-border overflow-x-auto">
-        <div className="grid grid-cols-[40px_1fr_80px_140px_200px_90px] min-w-[700px] px-5 py-2.5 border-b border-border bg-bg-card">
-          {["", "Flag", "Type", "Tags", "Environments", "Updated"].map((h) => (
-            <span key={h} className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em]">{h}</span>
+        <div className="grid grid-cols-[40px_1fr_80px_140px_200px_90px_40px] min-w-[750px] px-5 py-2.5 border-b border-border bg-bg-card">
+          {["", "Flag", "Type", "Tags", "Environments", "Updated", ""].map((h, i) => (
+            <span key={i} className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em]">{h}</span>
           ))}
         </div>
 
-        <div className="divide-y divide-border min-w-[700px]">
+        <div className="divide-y divide-border min-w-[750px]">
           {filtered.map((flag) => {
             const prodEnv = flag.environments?.find((e) => e.environment_slug === "production");
             const firstEnvEnabled = prodEnv?.enabled ?? flag.environments?.[0]?.enabled ?? false;
             return (
               <div
                 key={flag.id}
-                className={`grid grid-cols-[40px_1fr_80px_140px_200px_90px] px-5 py-3 hover:bg-bg-card/50 transition-colors cursor-pointer group items-center ${
+                className={`grid grid-cols-[40px_1fr_80px_140px_200px_90px_40px] px-5 py-3 hover:bg-bg-card/50 transition-colors group items-center ${
                   flag.archived ? "opacity-50" : ""
                 }`}
               >
@@ -203,6 +291,18 @@ export default function FlagsPage() {
                 </div>
 
                 <span className="font-mono text-[0.5rem] text-text-muted/60 text-right">{timeAgo(flag.updated_at)}</span>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(flag.key); }}
+                    className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-accent-red transition-all p-1"
+                    title="Delete flag"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 3h8M4.5 3V2h3v1M3 3v7.5h6V3" stroke="currentColor" strokeWidth="1" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -218,32 +318,172 @@ export default function FlagsPage() {
       </div>
 
       {/* Create Flag Modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create Flag">
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); resetCreateForm(); }} title="Create Flag">
         <div className="space-y-4">
-          <div>
-            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Flag Key</label>
-            <input type="text" value={newFlag.key} onChange={(e) => setNewFlag({ ...newFlag, key: e.target.value })} placeholder="e.g. new-checkout-flow" className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Flag Key</label>
+              <input
+                type="text"
+                value={newFlag.key}
+                onChange={(e) => setNewFlag({ ...newFlag, key: e.target.value })}
+                placeholder="new-checkout-flow"
+                className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Name</label>
+              <input
+                type="text"
+                value={newFlag.name}
+                onChange={(e) => setNewFlag({ ...newFlag, name: e.target.value })}
+                placeholder="New Checkout Flow"
+                className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors"
+              />
+            </div>
           </div>
+
           <div>
-            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Name</label>
-            <input type="text" value={newFlag.name} onChange={(e) => setNewFlag({ ...newFlag, name: e.target.value })} placeholder="e.g. New Checkout Flow" className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors" />
+            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Description</label>
+            <textarea
+              value={newFlag.description}
+              onChange={(e) => setNewFlag({ ...newFlag, description: e.target.value })}
+              placeholder="What this flag controls..."
+              rows={2}
+              className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors resize-none"
+            />
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Type</label>
+              <select
+                value={newFlag.flag_type}
+                onChange={(e) => handleFlagTypeChange(e.target.value)}
+                className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.6rem] text-text-secondary outline-none w-full"
+              >
+                <option value="boolean">Boolean</option>
+                <option value="string">String</option>
+                <option value="number">Number</option>
+                <option value="json">JSON</option>
+              </select>
+            </div>
+            <div>
+              <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Tags (comma-separated)</label>
+              <input
+                type="text"
+                value={newFlag.tags}
+                onChange={(e) => setNewFlag({ ...newFlag, tags: e.target.value })}
+                placeholder="frontend, experiment"
+                className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Variants */}
           <div>
-            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Type</label>
-            <select value={newFlag.flag_type} onChange={(e) => setNewFlag({ ...newFlag, flag_type: e.target.value })} className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.6rem] text-text-secondary outline-none w-full">
-              <option value="boolean">Boolean</option>
-              <option value="string">String</option>
-              <option value="number">Number</option>
-              <option value="json">JSON</option>
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em]">Variants</label>
+              <button
+                onClick={addVariant}
+                className="font-mono text-[0.5rem] text-accent-red hover:text-accent-red-hover uppercase tracking-wider transition-colors"
+              >
+                + Add Variant
+              </button>
+            </div>
+            <div className="space-y-2">
+              {variants.map((v, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={v.key}
+                      onChange={(e) => updateVariant(i, "key", e.target.value)}
+                      placeholder="Variant key"
+                      className="bg-bg-card border border-border px-2.5 py-1.5 font-mono text-[0.6rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors"
+                      readOnly={newFlag.flag_type === "boolean"}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={v.value}
+                      onChange={(e) => updateVariant(i, "value", e.target.value)}
+                      placeholder="Value"
+                      className="bg-bg-card border border-border px-2.5 py-1.5 font-mono text-[0.6rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors"
+                      readOnly={newFlag.flag_type === "boolean"}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={v.description}
+                      onChange={(e) => updateVariant(i, "description", e.target.value)}
+                      placeholder="Description"
+                      className="bg-bg-card border border-border px-2.5 py-1.5 font-mono text-[0.6rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors"
+                    />
+                  </div>
+                  {variants.length > 2 && (
+                    <button
+                      onClick={() => removeVariant(i)}
+                      className="text-text-muted hover:text-accent-red transition-colors p-1.5 mt-0.5"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                        <line x1="2" y1="2" x2="8" y2="8" stroke="currentColor" strokeWidth="1.2" />
+                        <line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" strokeWidth="1.2" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Default variant */}
+          <div>
+            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Default Variant (served when flag is off)</label>
+            <select
+              value={defaultVariantKey}
+              onChange={(e) => setDefaultVariantKey(e.target.value)}
+              className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.6rem] text-text-secondary outline-none w-full"
+            >
+              {variants.filter((v) => v.key.trim()).map((v) => (
+                <option key={v.key} value={v.key}>{v.key}</option>
+              ))}
             </select>
           </div>
-          <div>
-            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Tags (comma-separated)</label>
-            <input type="text" value={newFlag.tags} onChange={(e) => setNewFlag({ ...newFlag, tags: e.target.value })} placeholder="e.g. frontend, experiment" className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors" />
-          </div>
-          <button onClick={handleCreate} disabled={creating || !newFlag.key.trim() || !newFlag.name.trim()} className="w-full font-mono text-[0.6rem] uppercase tracking-wider px-5 py-2.5 bg-accent-red text-white hover:bg-accent-red-hover transition-colors disabled:opacity-50">
+
+          <button
+            onClick={handleCreate}
+            disabled={creating || !newFlag.key.trim() || !newFlag.name.trim() || variants.some((v) => !v.key.trim())}
+            className="w-full font-mono text-[0.6rem] uppercase tracking-wider px-5 py-2.5 bg-accent-red text-white hover:bg-accent-red-hover transition-colors disabled:opacity-50"
+          >
             {creating ? "Creating..." : "Create Flag"}
           </button>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Flag">
+        <div className="space-y-4">
+          <p className="font-mono text-[0.65rem] text-text-secondary">
+            Are you sure you want to delete <span className="text-accent-red">{deleteTarget}</span>? This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setDeleteTarget(null)}
+              className="flex-1 font-mono text-[0.6rem] uppercase tracking-wider px-5 py-2.5 border border-border text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+              disabled={deleting}
+              className="flex-1 font-mono text-[0.6rem] uppercase tracking-wider px-5 py-2.5 bg-accent-red text-white hover:bg-accent-red-hover transition-colors disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

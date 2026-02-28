@@ -111,6 +111,19 @@ pub async fn setup(
         });
     }
 
+    let _ = state
+        .store
+        .create_audit_log(
+            project.id,
+            None,
+            "project_created",
+            "project",
+            Some(project.id),
+            None,
+            None,
+        )
+        .await;
+
     Ok((
         StatusCode::CREATED,
         Json(SetupResponse {

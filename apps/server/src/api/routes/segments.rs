@@ -97,6 +97,19 @@ pub async fn create_segment(
         });
     }
 
+    let _ = state
+        .store
+        .create_audit_log(
+            project_id,
+            None,
+            "segment_created",
+            "segment",
+            Some(segment.id),
+            None,
+            None,
+        )
+        .await;
+
     Ok((
         StatusCode::CREATED,
         Json(SegmentResponse {

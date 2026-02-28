@@ -15,7 +15,6 @@ export default function SignInPage() {
       <Crosshair x="95%" y="8%" />
       <Crosshair x="5%" y="92%" />
       <Crosshair x="95%" y="92%" />
-      <Crosshair x="50%" y="50%" />
 
       {/* Decorative red lines */}
       <div className="absolute top-0 left-[30%] w-px h-48 bg-gradient-to-b from-accent-red/30 to-transparent" />
@@ -97,28 +96,60 @@ export default function SignInPage() {
           <span className="font-mono text-sm tracking-wider text-text-primary">FLAGFORGE</span>
         </Link>
 
-        <div className="w-full max-w-md">
-          {/* Top label */}
-          <div className="mb-8 text-center lg:text-left">
-            <div className="number-badge inline-flex mb-4">01</div>
-            <h2 className="font-serif text-2xl md:text-3xl mb-2">Sign In</h2>
-            <p className="font-mono text-label-xs uppercase text-text-muted tracking-wider">
-              Access your FlagForge dashboard
+        <div className="w-full max-w-sm">
+          {/* Custom header */}
+          <div className="mb-6 sm:mb-8">
+            <h2 className="font-serif text-2xl sm:text-3xl text-text-primary mb-2">Sign In</h2>
+            <p className="text-sm text-text-secondary">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/sign-up"
+                className="text-accent-red font-medium hover:text-accent-red-hover transition-colors"
+              >
+                Sign up
+              </Link>
             </p>
           </div>
 
           {/* Clerk SignIn component */}
           <SignIn
+            forceRedirectUrl="/dashboard"
             appearance={{
+              layout: {
+                logoPlacement: "none",
+              },
               elements: {
                 rootBox: "w-full",
-                cardBox: "w-full shadow-none",
-                card: "w-full bg-transparent border-0 shadow-none p-0",
-                header: "hidden",
-                footer: "justify-center",
+                cardBox:
+                  "w-full border border-[#C1BCA9]/[0.12] bg-[#C1BCA9]/[0.06] backdrop-blur-md shadow-[0_16px_42px_rgba(0,0,0,0.35)]",
+                card: "shadow-none p-5 sm:p-6 w-full bg-transparent border-0",
+                headerTitle: "hidden",
+                headerSubtitle: "hidden",
+                socialButtonsBlockButton:
+                  "border-[#C1BCA9]/20 bg-[#C1BCA9]/[0.08] !text-[#C1BCA9] hover:bg-[#C1BCA9]/[0.14] hover:!text-[#C1BCA9] font-mono text-[11px]",
+                socialButtonsBlockButtonText: "!text-[#C1BCA9]",
+                formFieldInput:
+                  "bg-[#C1BCA9]/10 border-[#C1BCA9]/20 text-[#C1BCA9] placeholder:text-[#C1BCA9]/35 focus:border-[#790f11] focus:ring-0",
+                formButtonPrimary:
+                  "bg-[#790f11] hover:bg-[#8e1517] text-[#C1BCA9] font-mono text-[11px] tracking-wide",
+                footerAction: "hidden",
+                footer: "hidden",
+                dividerLine: "bg-[#C1BCA9]/15",
+                dividerText: "text-[#C1BCA9]/50 font-mono text-[10px]",
+                formFieldLabel:
+                  "text-[#C1BCA9]/65 font-mono text-[10px] tracking-widest",
+                identityPreviewEditButton: "text-[#C1BCA9]",
+                formFieldAction: "text-[#C1BCA9]/70 hover:text-[#790f11]",
+                formResendCodeLink: "text-[#790f11] hover:text-[#8e1517]",
+                otpCodeFieldInput:
+                  "bg-[#C1BCA9]/10 border-[#C1BCA9]/20 text-[#C1BCA9]",
+                logoBox: "hidden",
+                identityPreview:
+                  "bg-[#C1BCA9]/[0.06] border border-[#C1BCA9]/[0.12]",
+                identityPreviewText: "text-[#C1BCA9]",
+                alert: "bg-[#790f11]/10 border border-[#790f11]/20 text-[#C1BCA9]",
               },
             }}
-            forceRedirectUrl="/dashboard"
           />
 
           {/* Bottom info */}

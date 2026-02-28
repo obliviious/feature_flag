@@ -15,6 +15,7 @@ use axum::{
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{fmt, EnvFilter};
+use axum::http::Request;
 
 use crate::api::middleware::auth::{require_auth, require_sdk_key};
 use crate::api::routes::*;
@@ -128,7 +129,32 @@ async fn main() -> anyhow::Result<()> {
             evaluation_routes().layer(axum_mw::from_fn_with_state(state.clone(), require_sdk_key)),
         )
         // Global middleware
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &Request<_>| {
+                    tracing::info_span!(
+                        "http_request",
+                        method = %request.method(),
+                        uri = %request.uri(),
+                    )
+                })
+                .on_response(
+                    |response: &axum::http::Response<_>, latency: std::time::Duration, _span: &tracing::Span| {
+                        tracing::info!(
+                            status = %response.status(),
+                            latency_ms = latency.as_millis(),
+                            "response"
+                        );
+                    },
+                )
+                .on_request(|request: &Request<_>, _span: &tracing::Span| {
+                    tracing::info!(
+                        method = %request.method(),
+                        path = %request.uri(),
+                        "request"
+                    );
+                }),
+        )
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -192,7 +218,10 @@ fn management_routes() -> Router<AppState> {
             post(segments::create_segment).get(segments::list_segments),
         )
         .route("/segments/{segment_id}", get(segments::get_segment))
-        .route("/environments", get(environments::list_environments))
+        .route(
+            "/environments",
+            get(environments::list_environments).post(environments::create_environment),
+        )
         .route(
             "/sdk-keys",
             get(sdk_keys::list_sdk_keys).post(sdk_keys::create_sdk_key),
