@@ -1,0 +1,377 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   FlagForge Design System — Dark Technical Blueprint Aesthetic
+   ============================================================ */
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #0d0d0d;
+    color: #e8e4de;
+    font-family: "DM Sans", system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: rgba(194, 59, 59, 0.35);
+    color: #fff;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0d0d0d;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+
+/* ============================================================
+   Hatching / Diagonal Stripe Patterns
+   ============================================================ */
+
+@layer utilities {
+  .hatching {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 1.5px,
+      rgba(255, 255, 255, 0.018) 1.5px,
+      rgba(255, 255, 255, 0.018) 3px
+    );
+  }
+
+  .hatching-dense {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 1px,
+      rgba(255, 255, 255, 0.025) 1px,
+      rgba(255, 255, 255, 0.025) 2px
+    );
+  }
+
+  .hatching-red {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 2px,
+      rgba(194, 59, 59, 0.12) 2px,
+      rgba(194, 59, 59, 0.12) 4px
+    );
+  }
+
+  /* Vertical fine lines pattern */
+  .vlines {
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 3px,
+      rgba(255, 255, 255, 0.015) 3px,
+      rgba(255, 255, 255, 0.015) 4px
+    );
+  }
+
+  /* Grid dot pattern */
+  .grid-dots {
+    background-image: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+  }
+}
+
+/* ============================================================
+   Crosshair Decorations
+   ============================================================ */
+
+.crosshair {
+  position: relative;
+}
+
+.crosshair::before,
+.crosshair::after {
+  content: "+";
+  position: absolute;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.12);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.crosshair-tl::before {
+  top: -7px;
+  left: -7px;
+}
+
+.crosshair-tr::after {
+  top: -7px;
+  right: -7px;
+}
+
+.crosshair-bl::before {
+  bottom: -7px;
+  left: -7px;
+}
+
+.crosshair-br::after {
+  bottom: -7px;
+  right: -7px;
+}
+
+/* ============================================================
+   Section Grid Lines
+   ============================================================ */
+
+.grid-line-top {
+  border-top: 1px solid #1e1e1e;
+}
+
+.grid-line-bottom {
+  border-bottom: 1px solid #1e1e1e;
+}
+
+.grid-line-left {
+  border-left: 1px solid #1e1e1e;
+}
+
+.grid-line-right {
+  border-right: 1px solid #1e1e1e;
+}
+
+/* ============================================================
+   Label / Badge Styles
+   ============================================================ */
+
+.label-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border: 1px solid #333;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #999;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.number-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 24px;
+  background: #2a2a2a;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  color: #999;
+}
+
+/* ============================================================
+   Red Link Style (>>> arrows)
+   ============================================================ */
+
+.red-link {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c23b3b;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(194, 59, 59, 0.4);
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.red-link:hover {
+  text-decoration-color: #c23b3b;
+  color: #d44444;
+}
+
+/* ============================================================
+   Scroll Reveal Animations
+   ============================================================ */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+.reveal-delay-5 { transition-delay: 0.5s; }
+
+/* ============================================================
+   Card Hover Effects
+   ============================================================ */
+
+.card-technical {
+  background: #151515;
+  border: 1px solid #1e1e1e;
+  transition: all 0.35s ease;
+  position: relative;
+}
+
+.card-technical::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: linear-gradient(
+    135deg,
+    rgba(194, 59, 59, 0.03) 0%,
+    transparent 50%
+  );
+  pointer-events: none;
+}
+
+.card-technical:hover {
+  border-color: #2a2a2a;
+  background: #181818;
+}
+
+.card-technical:hover::before {
+  opacity: 1;
+}
+
+/* ============================================================
+   Red CTA Bar
+   ============================================================ */
+
+.cta-bar {
+  background: #c23b3b;
+  color: #fff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 24px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.06) 2px,
+    rgba(255, 255, 255, 0.06) 4px
+  );
+  pointer-events: none;
+}
+
+.cta-bar:hover {
+  background: #d44444;
+}
+
+/* ============================================================
+   Globe wireframe animation (Deep Dive section)
+   ============================================================ */
+
+@keyframes rotateGlobe {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes orbitRing {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.globe-rotate {
+  animation: rotateGlobe 60s linear infinite;
+}
+
+.orbit-ring {
+  animation: orbitRing 20s linear infinite;
+}
+
+/* ============================================================
+   Chart styles
+   ============================================================ */
+
+.chart-grid-line {
+  stroke: #1e1e1e;
+  stroke-width: 0.5;
+}
+
+.chart-line-traditional {
+  fill: none;
+  stroke: #555;
+  stroke-width: 2;
+}
+
+.chart-line-flagforge {
+  fill: none;
+  stroke: #c23b3b;
+  stroke-width: 2.5;
+}
+
+/* ============================================================
+   Noise texture overlay
+   ============================================================ */
+
+.noise-overlay::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ============================================================
+   Ticker / Marquee
+   ============================================================ */
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker 30s linear infinite;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}

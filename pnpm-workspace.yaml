@@ -1,0 +1,4 @@
+packages:
+  - "packages/shared-types"
+  - "sdks/js"
+  - "apps/dashboard"

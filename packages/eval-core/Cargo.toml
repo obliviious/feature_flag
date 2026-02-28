@@ -1,0 +1,18 @@
+[package]
+name = "eval-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "FlagForge evaluation engine — shared core for server and edge"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+regex = { workspace = true }
+semver = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }

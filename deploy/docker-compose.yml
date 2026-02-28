@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: apps/server/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://flagforge:flagforge@postgres:5432/flagforge
+      REDIS_URL: redis://redis:6379
+      CLERK_DOMAIN: ${CLERK_DOMAIN:?CLERK_DOMAIN must be set}
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: flagforge
+      POSTGRES_PASSWORD: flagforge
+      POSTGRES_DB: flagforge
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
