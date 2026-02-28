@@ -4,8 +4,9 @@ import { useUser } from "@clerk/nextjs";
 import { useProject } from "@/lib/project-context";
 import { useApiData } from "@/lib/use-api-data";
 import { LoadingState } from "@/components/dashboard/LoadingState";
+import { SetupPrompt } from "@/components/dashboard/SetupPrompt";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_DISPLAY_URL = "Via /api/proxy → EC2 backend";
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser();
@@ -17,6 +18,7 @@ export default function SettingsPage() {
   );
 
   if (projectLoading || envsLoading) return <LoadingState label="Loading settings..." />;
+  if (!project) return <SetupPrompt />;
 
   return (
     <div className="p-6 md:p-8 relative z-10 space-y-8">
@@ -84,8 +86,8 @@ export default function SettingsPage() {
           </span>
         </div>
         <div className="p-5 space-y-4">
-          <SettingsField label="Server URL" value={API_URL} mono />
-          <SettingsField label="SSE Endpoint" value={`${API_URL}/api/v1/stream`} mono />
+          <SettingsField label="Server URL" value={API_DISPLAY_URL} mono />
+          <SettingsField label="SSE Endpoint" value={`${API_DISPLAY_URL}/api/v1/stream`} mono />
         </div>
       </section>
 

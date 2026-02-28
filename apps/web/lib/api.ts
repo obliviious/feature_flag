@@ -1,6 +1,7 @@
 // Typed API client for FlagForge backend
+// All requests go through /api/proxy/... to avoid mixed-content (HTTPS→HTTP) issues.
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = "/api/proxy";
 
 // ============================================================
 // Types matching backend response structs
@@ -131,10 +132,23 @@ async function request<T>(
   return res.json();
 }
 
+export interface SetupResponse {
+  organization_id: string;
+  project_id: string;
+  environments: { id: string; name: string; slug: string; server_key: string; client_key: string }[];
+}
+
 export function createApi(getToken: GetToken) {
   const base = (projectId: string) => `/api/v1/projects/${projectId}`;
 
   return {
+    // Setup (bootstrap org + project + envs + keys)
+    setup: (data: { org_name: string; org_slug: string; project_name: string; project_slug: string }) =>
+      request<SetupResponse>(getToken, "/api/v1/setup", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
     // Projects
     listProjects: () => request<Project[]>(getToken, "/api/v1/projects"),
 
@@ -178,6 +192,18 @@ export function createApi(getToken: GetToken) {
     // Segments
     listSegments: (projectId: string) =>
       request<Segment[]>(getToken, `${base(projectId)}/segments`),
+
+    createSegment: (projectId: string, data: {
+      key: string;
+      name: string;
+      description?: string;
+      match_type?: string;
+      constraints?: { attribute: string; operator: string; values: string[] }[];
+    }) =>
+      request<Segment>(getToken, `${base(projectId)}/segments`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
 
     // SDK Keys
     listSdkKeys: (projectId: string) =>

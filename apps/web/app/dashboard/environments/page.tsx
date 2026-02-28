@@ -4,6 +4,7 @@ import { useProject } from "@/lib/project-context";
 import { useApiData } from "@/lib/use-api-data";
 import { LoadingState } from "@/components/dashboard/LoadingState";
 import { ErrorState } from "@/components/dashboard/ErrorState";
+import { SetupPrompt } from "@/components/dashboard/SetupPrompt";
 
 export default function EnvironmentsPage() {
   const { project, api, loading: projectLoading } = useProject();
@@ -19,6 +20,7 @@ export default function EnvironmentsPage() {
   );
 
   if (projectLoading || loading) return <LoadingState label="Loading environments..." />;
+  if (!project) return <SetupPrompt />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
   const envs = environments ?? [];

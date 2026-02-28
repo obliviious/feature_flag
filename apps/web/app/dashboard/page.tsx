@@ -6,6 +6,7 @@ import { useProject } from "@/lib/project-context";
 import { useApiData } from "@/lib/use-api-data";
 import { LoadingState } from "@/components/dashboard/LoadingState";
 import { ErrorState } from "@/components/dashboard/ErrorState";
+import { SetupPrompt } from "@/components/dashboard/SetupPrompt";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -49,6 +50,7 @@ export default function DashboardOverview() {
   const loading = projectLoading || flagsLoading || envsLoading || logLoading;
 
   if (loading) return <LoadingState label="Loading dashboard..." />;
+  if (!project && !projectLoading) return <SetupPrompt />;
   if (flagsError) return <ErrorState message={flagsError} onRetry={refetchFlags} />;
 
   const stats: { label: string; value: string; change: string; trend: string }[] = [

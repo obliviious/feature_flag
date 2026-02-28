@@ -5,6 +5,7 @@ import { useProject } from "@/lib/project-context";
 import { useApiData } from "@/lib/use-api-data";
 import { LoadingState } from "@/components/dashboard/LoadingState";
 import { ErrorState } from "@/components/dashboard/ErrorState";
+import { SetupPrompt } from "@/components/dashboard/SetupPrompt";
 
 function actionColor(action: string) {
   if (action.includes("toggled")) return "text-amber-400/70 border-amber-400/20 bg-amber-400/[0.04]";
@@ -38,6 +39,7 @@ export default function AuditLogPage() {
   );
 
   if (projectLoading || loading) return <LoadingState label="Loading audit log..." />;
+  if (!project) return <SetupPrompt />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
   const allLogs = logs ?? [];

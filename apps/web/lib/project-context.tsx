@@ -9,6 +9,7 @@ interface ProjectContextValue {
   projects: Project[];
   api: Api;
   selectProject: (id: string) => void;
+  refreshProjects: () => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -35,6 +36,19 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     },
     [projects]
   );
+
+  const refreshProjects = useCallback(async () => {
+    try {
+      const list = await api.listProjects();
+      setProjects(list);
+      const savedId = localStorage.getItem(STORAGE_KEY);
+      const saved = savedId ? list.find((p) => p.id === savedId) : null;
+      setProject(saved || list[0] || null);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load projects");
+    }
+  }, [api]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +77,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProjectContext.Provider
-      value={{ project, projects, api, selectProject, loading, error }}
+      value={{ project, projects, api, selectProject, refreshProjects, loading, error }}
     >
       {children}
     </ProjectContext.Provider>
