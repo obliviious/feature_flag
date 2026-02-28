@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
+import { useProject } from "@/lib/project-context";
 
 interface NavItem {
   label: string;
@@ -128,6 +129,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const { user, isLoaded } = useUser();
+  const { project } = useProject();
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
@@ -168,10 +170,10 @@ export default function Sidebar({
             </div>
             <div className="flex-1 text-left min-w-0">
               <div className="font-mono text-[0.65rem] text-text-primary truncate">
-                My Project
+                {project?.name || "No Project"}
               </div>
               <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider">
-                Production
+                {project?.slug || "—"}
               </div>
             </div>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-text-muted shrink-0">

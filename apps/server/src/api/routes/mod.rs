@@ -1,6 +1,10 @@
+pub mod audit_log;
+pub mod environments;
 pub mod evaluate;
 pub mod flags;
 pub mod health;
+pub mod projects;
+pub mod sdk_keys;
 pub mod segments;
 pub mod setup;
 pub mod stream;

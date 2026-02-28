@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RedirectToSignIn, SignedIn, SignedOut } from "@clerk/nextjs";
 import Sidebar from "@/components/dashboard/Sidebar";
+import { ProjectProvider } from "@/lib/project-context";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -13,6 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <RedirectToSignIn />
       </SignedOut>
       <SignedIn>
+        <ProjectProvider>
         <div className="flex h-screen overflow-hidden bg-bg-primary">
           <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -71,6 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </main>
           </div>
         </div>
+        </ProjectProvider>
       </SignedIn>
     </>
   );

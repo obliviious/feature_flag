@@ -61,8 +61,17 @@ pub struct FlagResponse {
     pub tags: Vec<String>,
     pub archived: bool,
     pub variants: Vec<VariantResponse>,
+    pub environments: Vec<FlagEnvironmentState>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FlagEnvironmentState {
+    pub environment_id: String,
+    pub environment_name: String,
+    pub environment_slug: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -77,6 +86,42 @@ type ApiError = (StatusCode, Json<serde_json::Value>);
 
 fn err(status: StatusCode, msg: &str) -> ApiError {
     (status, Json(serde_json::json!({ "error": msg })))
+}
+
+/// Build environment states for a flag by joining flag_environments with environments.
+async fn build_env_states(
+    state: &AppState,
+    flag_id: Uuid,
+    project_id: Uuid,
+) -> Result<Vec<FlagEnvironmentState>, ApiError> {
+    let environments = state
+        .store
+        .list_environments(project_id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+
+    let flag_envs = state
+        .store
+        .list_flag_environments(flag_id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+
+    let mut states = Vec::new();
+    for env in &environments {
+        let enabled = flag_envs
+            .iter()
+            .find(|fe| fe.environment_id == env.id)
+            .map(|fe| fe.enabled)
+            .unwrap_or(false);
+
+        states.push(FlagEnvironmentState {
+            environment_id: env.id.to_string(),
+            environment_name: env.name.clone(),
+            environment_slug: env.slug.clone(),
+            enabled,
+        });
+    }
+    Ok(states)
 }
 
 /// Publish config change events for all environments in a project.
@@ -167,6 +212,8 @@ pub async fn create_flag(
 
     notify_config_change(&state, project_id).await;
 
+    let env_states = build_env_states(&state, flag.id, project_id).await?;
+
     Ok((
         StatusCode::CREATED,
         Json(FlagResponse {
@@ -178,6 +225,7 @@ pub async fn create_flag(
             tags: flag.tags,
             archived: flag.archived,
             variants: variant_responses,
+            environments: env_states,
             created_at: flag.created_at.to_rfc3339(),
             updated_at: flag.updated_at.to_rfc3339(),
         }),
@@ -203,6 +251,8 @@ pub async fn list_flags(
             .await
             .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
 
+        let env_states = build_env_states(&state, flag.id, project_id).await?;
+
         responses.push(FlagResponse {
             id: flag.id.to_string(),
             key: flag.key,
@@ -220,6 +270,7 @@ pub async fn list_flags(
                     description: v.description,
                 })
                 .collect(),
+            environments: env_states,
             created_at: flag.created_at.to_rfc3339(),
             updated_at: flag.updated_at.to_rfc3339(),
         });
@@ -246,6 +297,8 @@ pub async fn get_flag(
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
 
+    let env_states = build_env_states(&state, flag.id, project_id).await?;
+
     Ok(Json(FlagResponse {
         id: flag.id.to_string(),
         key: flag.key,
@@ -263,6 +316,7 @@ pub async fn get_flag(
                 description: v.description,
             })
             .collect(),
+        environments: env_states,
         created_at: flag.created_at.to_rfc3339(),
         updated_at: flag.updated_at.to_rfc3339(),
     }))
@@ -301,6 +355,8 @@ pub async fn update_flag(
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
 
+    let env_states = build_env_states(&state, updated.id, project_id).await?;
+
     Ok(Json(FlagResponse {
         id: updated.id.to_string(),
         key: updated.key,
@@ -318,6 +374,7 @@ pub async fn update_flag(
                 description: v.description,
             })
             .collect(),
+        environments: env_states,
         created_at: updated.created_at.to_rfc3339(),
         updated_at: updated.updated_at.to_rfc3339(),
     }))

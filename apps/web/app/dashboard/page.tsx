@@ -2,33 +2,64 @@
 
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
+import { useProject } from "@/lib/project-context";
+import { useApiData } from "@/lib/use-api-data";
+import { LoadingState } from "@/components/dashboard/LoadingState";
+import { ErrorState } from "@/components/dashboard/ErrorState";
 
-const stats = [
-  { label: "Total Flags", value: "12", change: "+3", trend: "up" },
-  { label: "Environments", value: "3", change: "0", trend: "flat" },
-  { label: "Evaluations (24h)", value: "48.2K", change: "+12%", trend: "up" },
-  { label: "Avg Latency", value: "0.4ms", change: "-8%", trend: "down" },
-];
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day ago`;
+}
 
-const recentFlags = [
-  { key: "new-checkout-flow", enabled: true, env: "Production", updated: "2 min ago", type: "boolean" },
-  { key: "dark-mode-v2", enabled: true, env: "Staging", updated: "1 hr ago", type: "boolean" },
-  { key: "pricing-experiment", enabled: false, env: "Production", updated: "3 hrs ago", type: "string" },
-  { key: "ai-recommendations", enabled: true, env: "Production", updated: "5 hrs ago", type: "boolean" },
-  { key: "new-onboarding", enabled: false, env: "Development", updated: "1 day ago", type: "json" },
-];
-
-const activity = [
-  { action: "Flag toggled", detail: "new-checkout-flow → ON in production", user: "Sarah C.", time: "2 min ago", type: "toggle" },
-  { action: "Flag created", detail: "ai-recommendations", user: "Marcus R.", time: "1 hr ago", type: "create" },
-  { action: "Segment updated", detail: "Enterprise Users — added plan constraint", user: "Sarah C.", time: "3 hrs ago", type: "update" },
-  { action: "SDK key generated", detail: "srv_k8x...e2f for Production", user: "Aiko T.", time: "5 hrs ago", type: "key" },
-  { action: "Flag archived", detail: "legacy-payment-flow", user: "Marcus R.", time: "1 day ago", type: "archive" },
-  { action: "Environment created", detail: "Staging", user: "Sarah C.", time: "2 days ago", type: "create" },
-];
+function activityType(action: string) {
+  if (action.includes("toggled")) return "toggle";
+  if (action.includes("created")) return "create";
+  if (action.includes("updated")) return "update";
+  if (action.includes("archived")) return "archive";
+  if (action.includes("key")) return "key";
+  return "update";
+}
 
 export default function DashboardOverview() {
   const { user, isLoaded } = useUser();
+  const { project, api, loading: projectLoading } = useProject();
+
+  const { data: flags, loading: flagsLoading, error: flagsError, refetch: refetchFlags } = useApiData(
+    () => (project ? api.listFlags(project.id) : Promise.resolve([])),
+    [project?.id]
+  );
+
+  const { data: environments, loading: envsLoading } = useApiData(
+    () => (project ? api.listEnvironments(project.id) : Promise.resolve([])),
+    [project?.id]
+  );
+
+  const { data: auditLog, loading: logLoading } = useApiData(
+    () => (project ? api.listAuditLog(project.id, 6, 0) : Promise.resolve([])),
+    [project?.id]
+  );
+
+  const loading = projectLoading || flagsLoading || envsLoading || logLoading;
+
+  if (loading) return <LoadingState label="Loading dashboard..." />;
+  if (flagsError) return <ErrorState message={flagsError} onRetry={refetchFlags} />;
+
+  const stats: { label: string; value: string; change: string; trend: string }[] = [
+    { label: "Total Flags", value: String(flags?.length ?? 0), change: "", trend: "flat" },
+    { label: "Environments", value: String(environments?.length ?? 0), change: "", trend: "flat" },
+    { label: "Evaluations (24h)", value: "—", change: "", trend: "flat" },
+    { label: "Avg Latency", value: "—", change: "", trend: "flat" },
+  ];
+
+  const recentFlags = (flags ?? []).slice(0, 5);
+  const activity = (auditLog ?? []).slice(0, 6);
 
   return (
     <div className="p-6 md:p-8 relative z-10 space-y-8">
@@ -51,17 +82,19 @@ export default function DashboardOverview() {
             </div>
             <div className="flex items-end gap-2">
               <span className="font-serif text-2xl text-text-primary">{s.value}</span>
-              <span
-                className={`font-mono text-[0.55rem] mb-1 ${
-                  s.trend === "up"
-                    ? "text-green-500"
-                    : s.trend === "down"
-                    ? "text-accent-red"
-                    : "text-text-muted"
-                }`}
-              >
-                {s.change}
-              </span>
+              {s.change && (
+                <span
+                  className={`font-mono text-[0.55rem] mb-1 ${
+                    s.trend === "up"
+                      ? "text-green-500"
+                      : s.trend === "down"
+                      ? "text-accent-red"
+                      : "text-text-muted"
+                  }`}
+                >
+                  {s.change}
+                </span>
+              )}
             </div>
           </div>
         ))}
@@ -83,47 +116,53 @@ export default function DashboardOverview() {
             </Link>
           </div>
 
-          <div className="divide-y divide-border">
-            {recentFlags.map((flag) => (
-              <div
-                key={flag.key}
-                className="flex items-center gap-4 px-5 py-3 hover:bg-bg-card/50 transition-colors cursor-pointer group"
-              >
-                {/* Toggle */}
-                <button
-                  className={`w-8 h-[18px] rounded-full p-[2px] transition-colors shrink-0 ${
-                    flag.enabled ? "bg-accent-red" : "bg-[#2a2720]"
-                  }`}
-                >
+          {recentFlags.length === 0 ? (
+            <div className="px-5 py-8 text-center">
+              <p className="font-mono text-[0.6rem] text-text-muted">No flags yet. Create your first flag to get started.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {recentFlags.map((flag) => {
+                const prodEnv = flag.environments?.find((e) => e.environment_slug === "production");
+                const enabled = prodEnv?.enabled ?? flag.environments?.[0]?.enabled ?? false;
+                return (
                   <div
-                    className={`w-[14px] h-[14px] rounded-full bg-white transition-transform ${
-                      flag.enabled ? "translate-x-[14px]" : "translate-x-0"
-                    }`}
-                  />
-                </button>
+                    key={flag.key}
+                    className="flex items-center gap-4 px-5 py-3 hover:bg-bg-card/50 transition-colors cursor-pointer group"
+                  >
+                    <div
+                      className={`w-8 h-[18px] rounded-full p-[2px] transition-colors shrink-0 ${
+                        enabled ? "bg-accent-red" : "bg-[#2a2720]"
+                      }`}
+                    >
+                      <div
+                        className={`w-[14px] h-[14px] rounded-full bg-white transition-transform ${
+                          enabled ? "translate-x-[14px]" : "translate-x-0"
+                        }`}
+                      />
+                    </div>
 
-                {/* Flag info */}
-                <div className="flex-1 min-w-0">
-                  <div className="font-mono text-[0.7rem] text-text-primary group-hover:text-accent-red transition-colors truncate">
-                    {flag.key}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-[0.7rem] text-text-primary group-hover:text-accent-red transition-colors truncate">
+                        {flag.key}
+                      </div>
+                      <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider">
+                        {flag.environments?.map((e) => e.environment_name).join(", ") || "—"}
+                      </div>
+                    </div>
+
+                    <span className="font-mono text-[0.5rem] text-text-muted/60 uppercase tracking-wider border border-border px-1.5 py-0.5 hidden sm:block">
+                      {flag.flag_type}
+                    </span>
+
+                    <span className="font-mono text-[0.5rem] text-text-muted shrink-0">
+                      {timeAgo(flag.updated_at)}
+                    </span>
                   </div>
-                  <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider">
-                    {flag.env}
-                  </div>
-                </div>
-
-                {/* Type badge */}
-                <span className="font-mono text-[0.5rem] text-text-muted/60 uppercase tracking-wider border border-border px-1.5 py-0.5 hidden sm:block">
-                  {flag.type}
-                </span>
-
-                {/* Time */}
-                <span className="font-mono text-[0.5rem] text-text-muted shrink-0">
-                  {flag.updated}
-                </span>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Activity feed */}
@@ -140,52 +179,61 @@ export default function DashboardOverview() {
             </Link>
           </div>
 
-          <div className="divide-y divide-border">
-            {activity.map((a, i) => (
-              <div key={i} className="px-5 py-3 hover:bg-bg-card/50 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`w-5 h-5 shrink-0 mt-0.5 flex items-center justify-center border ${
-                      a.type === "toggle"
-                        ? "border-accent-red/30 text-accent-red"
-                        : a.type === "create"
-                        ? "border-green-500/30 text-green-500"
-                        : "border-border-lighter text-text-muted"
-                    }`}
-                  >
-                    {a.type === "toggle" && (
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="3" /></svg>
-                    )}
-                    {a.type === "create" && (
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><line x1="4" y1="1" x2="4" y2="7" stroke="currentColor" strokeWidth="1.2" /><line x1="1" y1="4" x2="7" y2="4" stroke="currentColor" strokeWidth="1.2" /></svg>
-                    )}
-                    {a.type === "update" && (
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4h6M5 2l2 2-2 2" stroke="currentColor" strokeWidth="1" /></svg>
-                    )}
-                    {a.type === "key" && (
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><circle cx="3" cy="4" r="2" stroke="currentColor" strokeWidth="0.8" /><line x1="5" y1="4" x2="7.5" y2="4" stroke="currentColor" strokeWidth="0.8" /></svg>
-                    )}
-                    {a.type === "archive" && (
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><rect x="1" y="1" width="6" height="2" stroke="currentColor" strokeWidth="0.8" /><rect x="2" y="3" width="4" height="4" stroke="currentColor" strokeWidth="0.8" /></svg>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-mono text-[0.6rem] text-text-primary">
-                      {a.action}
+          {activity.length === 0 ? (
+            <div className="px-5 py-8 text-center">
+              <p className="font-mono text-[0.6rem] text-text-muted">No activity yet.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {activity.map((a) => {
+                const type = activityType(a.action);
+                return (
+                  <div key={a.id} className="px-5 py-3 hover:bg-bg-card/50 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-5 h-5 shrink-0 mt-0.5 flex items-center justify-center border ${
+                          type === "toggle"
+                            ? "border-accent-red/30 text-accent-red"
+                            : type === "create"
+                            ? "border-green-500/30 text-green-500"
+                            : "border-border-lighter text-text-muted"
+                        }`}
+                      >
+                        {type === "toggle" && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="3" /></svg>
+                        )}
+                        {type === "create" && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><line x1="4" y1="1" x2="4" y2="7" stroke="currentColor" strokeWidth="1.2" /><line x1="1" y1="4" x2="7" y2="4" stroke="currentColor" strokeWidth="1.2" /></svg>
+                        )}
+                        {type === "update" && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4h6M5 2l2 2-2 2" stroke="currentColor" strokeWidth="1" /></svg>
+                        )}
+                        {type === "key" && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><circle cx="3" cy="4" r="2" stroke="currentColor" strokeWidth="0.8" /><line x1="5" y1="4" x2="7.5" y2="4" stroke="currentColor" strokeWidth="0.8" /></svg>
+                        )}
+                        {type === "archive" && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><rect x="1" y="1" width="6" height="2" stroke="currentColor" strokeWidth="0.8" /><rect x="2" y="3" width="4" height="4" stroke="currentColor" strokeWidth="0.8" /></svg>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-[0.6rem] text-text-primary">
+                          {a.action}
+                        </div>
+                        <div className="font-mono text-[0.5rem] text-text-muted truncate">
+                          {a.entity_type}: {a.entity_id || "—"}
+                        </div>
+                      </div>
                     </div>
-                    <div className="font-mono text-[0.5rem] text-text-muted truncate">
-                      {a.detail}
+                    <div className="flex items-center gap-2 mt-1.5 ml-8">
+                      <span className="font-mono text-[0.5rem] text-text-muted/60">{a.actor_email || "System"}</span>
+                      <span className="text-border-lighter text-[0.4rem]">|</span>
+                      <span className="font-mono text-[0.5rem] text-text-muted/40">{timeAgo(a.created_at)}</span>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 mt-1.5 ml-8">
-                  <span className="font-mono text-[0.5rem] text-text-muted/60">{a.user}</span>
-                  <span className="text-border-lighter text-[0.4rem]">|</span>
-                  <span className="font-mono text-[0.5rem] text-text-muted/40">{a.time}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -209,57 +257,23 @@ export default function DashboardOverview() {
           </div>
         </div>
         <div className="p-5">
-          <svg viewBox="0 0 700 160" className="w-full" fill="none">
-            {/* Grid lines */}
-            {[40, 80, 120].map((y) => (
-              <line key={y} x1="0" y1={y} x2="700" y2={y} stroke="#2a2720" strokeWidth="0.5" strokeDasharray="4 4" />
-            ))}
-
-            {/* Area fill */}
-            <path
-              d="M0 140 L100 120 L200 100 L300 90 L400 70 L500 50 L600 55 L700 30 L700 160 L0 160 Z"
-              fill="url(#eval-gradient)"
-            />
-
-            {/* Line */}
-            <polyline
-              points="0,140 100,120 200,100 300,90 400,70 500,50 600,55 700,30"
-              fill="none"
-              stroke="#790f11"
-              strokeWidth="1.5"
-            />
-
-            {/* Current point */}
-            <circle cx="700" cy="30" r="3" fill="#790f11" />
-            <circle cx="700" cy="30" r="6" fill="none" stroke="#790f11" strokeWidth="0.5" opacity="0.4" />
-
-            <defs>
-              <linearGradient id="eval-gradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#790f11" stopOpacity="0.08" />
-                <stop offset="100%" stopColor="#790f11" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-
-            {/* X labels */}
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => (
-              <text key={day} x={i * 100 + 50} y="155" fill="#5c5848" fontSize="8" fontFamily="monospace" textAnchor="middle">
-                {day}
-              </text>
-            ))}
-          </svg>
+          <div className="flex items-center justify-center py-10">
+            <span className="font-mono text-[0.6rem] text-text-muted">Evaluation metrics will appear once the SDK is integrated.</span>
+          </div>
         </div>
       </div>
 
       {/* Quick actions bar */}
       <div className="grid sm:grid-cols-3 gap-px bg-border">
         {[
-          { icon: "+", label: "New Flag", desc: "Create a feature flag" },
-          { icon: "~", label: "New Segment", desc: "Define a user segment" },
-          { icon: "#", label: "Generate Key", desc: "Create an SDK key" },
+          { icon: "+", label: "New Flag", desc: "Create a feature flag", href: "/dashboard/flags" },
+          { icon: "~", label: "New Segment", desc: "Define a user segment", href: "/dashboard/segments" },
+          { icon: "#", label: "Generate Key", desc: "Create an SDK key", href: "/dashboard/sdk-keys" },
         ].map((qa) => (
-          <button
+          <Link
             key={qa.label}
-            className="bg-bg-primary p-5 text-left hover:bg-bg-card transition-colors group"
+            href={qa.href}
+            className="bg-bg-primary p-5 text-left hover:bg-bg-card transition-colors group block"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="w-7 h-7 border border-border-lighter flex items-center justify-center font-mono text-sm text-text-muted group-hover:border-accent-red/30 group-hover:text-accent-red transition-colors">
@@ -272,7 +286,7 @@ export default function DashboardOverview() {
             <span className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider">
               {qa.desc}
             </span>
-          </button>
+          </Link>
         ))}
       </div>
     </div>

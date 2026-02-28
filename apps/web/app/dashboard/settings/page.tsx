@@ -1,9 +1,22 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
+import { useProject } from "@/lib/project-context";
+import { useApiData } from "@/lib/use-api-data";
+import { LoadingState } from "@/components/dashboard/LoadingState";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser();
+  const { project, api, loading: projectLoading } = useProject();
+
+  const { data: environments, loading: envsLoading } = useApiData(
+    () => (project ? api.listEnvironments(project.id) : Promise.resolve([])),
+    [project?.id]
+  );
+
+  if (projectLoading || envsLoading) return <LoadingState label="Loading settings..." />;
 
   return (
     <div className="p-6 md:p-8 relative z-10 space-y-8">
@@ -38,17 +51,27 @@ export default function SettingsPage() {
           </span>
         </div>
         <div className="p-5 space-y-4">
-          <SettingsInput label="Project Name" defaultValue="My Project" />
-          <SettingsInput label="Project Slug" defaultValue="my-project" />
+          <SettingsField label="Project Name" value={project?.name || "—"} />
+          <SettingsField label="Project Slug" value={project?.slug || "—"} mono />
+          <SettingsField label="Project ID" value={project?.id || "—"} mono />
           <div>
             <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">
-              Default Environment
+              Environments
             </label>
-            <select className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-secondary outline-none w-full max-w-sm">
-              <option>Production</option>
-              <option>Staging</option>
-              <option>Development</option>
-            </select>
+            <div className="flex gap-2 flex-wrap">
+              {(environments ?? []).map((env) => (
+                <span
+                  key={env.id}
+                  className="font-mono text-[0.6rem] text-text-secondary bg-bg-card border border-border px-3 py-1.5 flex items-center gap-2"
+                >
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: env.color || "#555" }} />
+                  {env.name}
+                </span>
+              ))}
+              {(environments ?? []).length === 0 && (
+                <span className="font-mono text-[0.55rem] text-text-muted">No environments</span>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -61,9 +84,8 @@ export default function SettingsPage() {
           </span>
         </div>
         <div className="p-5 space-y-4">
-          <SettingsField label="Server URL" value="https://api.flagforge.dev" mono />
-          <SettingsField label="SSE Endpoint" value="https://api.flagforge.dev/api/v1/stream" mono />
-          <SettingsField label="Clerk Domain" value="your-app.clerk.accounts.dev" mono />
+          <SettingsField label="Server URL" value={API_URL} mono />
+          <SettingsField label="SSE Endpoint" value={`${API_URL}/api/v1/stream`} mono />
         </div>
       </section>
 
@@ -122,21 +144,6 @@ function SettingsField({ label, value, mono }: { label: string; value: string; m
       <div className={`${mono ? "font-mono text-[0.65rem]" : "text-sm"} text-text-secondary bg-bg-card border border-border px-3 py-2`}>
         {value}
       </div>
-    </div>
-  );
-}
-
-function SettingsInput({ label, defaultValue }: { label: string; defaultValue: string }) {
-  return (
-    <div>
-      <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">
-        {label}
-      </label>
-      <input
-        type="text"
-        defaultValue={defaultValue}
-        className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full max-w-sm focus:border-accent-red/50 transition-colors"
-      />
     </div>
   );
 }

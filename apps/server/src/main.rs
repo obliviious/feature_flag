@@ -112,6 +112,11 @@ async fn main() -> anyhow::Result<()> {
         // Public endpoints
         .route("/health", get(health::health_check))
         .route("/api/v1/setup", post(setup::setup))
+        // Projects API (JWT auth, top-level)
+        .nest(
+            "/api/v1",
+            projects_routes().layer(axum_mw::from_fn_with_state(state.clone(), require_auth)),
+        )
         // Management API (JWT auth)
         .nest(
             "/api/v1/projects/{project_id}",
@@ -166,6 +171,12 @@ async fn subscribe_redis_changes(
     }
 }
 
+fn projects_routes() -> Router<AppState> {
+    Router::new()
+        .route("/projects", get(projects::list_projects))
+        .route("/projects/{project_id}", get(projects::get_project))
+}
+
 fn management_routes() -> Router<AppState> {
     Router::new()
         .route("/flags", post(flags::create_flag).get(flags::list_flags))
@@ -181,6 +192,13 @@ fn management_routes() -> Router<AppState> {
             post(segments::create_segment).get(segments::list_segments),
         )
         .route("/segments/{segment_id}", get(segments::get_segment))
+        .route("/environments", get(environments::list_environments))
+        .route(
+            "/sdk-keys",
+            get(sdk_keys::list_sdk_keys).post(sdk_keys::create_sdk_key),
+        )
+        .route("/sdk-keys/{key_id}/revoke", post(sdk_keys::revoke_sdk_key))
+        .route("/audit-log", get(audit_log::list_audit_log))
 }
 
 fn evaluation_routes() -> Router<AppState> {

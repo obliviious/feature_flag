@@ -493,6 +493,54 @@ impl PostgresStore {
         Ok(())
     }
 
+    pub async fn list_sdk_keys_for_project(
+        &self,
+        project_id: Uuid,
+    ) -> Result<Vec<SdkKeyRow>> {
+        let rows = sqlx::query_as::<_, SdkKeyRow>(
+            "SELECT sk.* FROM sdk_keys sk
+             JOIN environments e ON sk.environment_id = e.id
+             WHERE e.project_id = $1
+             ORDER BY sk.created_at DESC",
+        )
+        .bind(project_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    pub async fn revoke_sdk_key(&self, key_id: Uuid) -> Result<SdkKeyRow> {
+        let row = sqlx::query_as::<_, SdkKeyRow>(
+            "UPDATE sdk_keys SET revoked_at = NOW() WHERE id = $1 RETURNING *",
+        )
+        .bind(key_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn list_all_projects(&self) -> Result<Vec<ProjectRow>> {
+        let rows = sqlx::query_as::<_, ProjectRow>(
+            "SELECT * FROM projects ORDER BY created_at DESC",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    pub async fn list_flag_environments(
+        &self,
+        flag_id: Uuid,
+    ) -> Result<Vec<FlagEnvironmentRow>> {
+        let rows = sqlx::query_as::<_, FlagEnvironmentRow>(
+            "SELECT * FROM flag_environments WHERE flag_id = $1",
+        )
+        .bind(flag_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
     // ============================================================
     // Config Builder — build eval-core FlagsConfig from DB
     // ============================================================

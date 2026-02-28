@@ -1,43 +1,60 @@
 "use client";
 
 import { useState } from "react";
+import { useProject } from "@/lib/project-context";
+import { useApiData } from "@/lib/use-api-data";
+import { LoadingState } from "@/components/dashboard/LoadingState";
+import { ErrorState } from "@/components/dashboard/ErrorState";
 
-interface Flag {
-  id: string;
-  key: string;
-  name: string;
-  type: string;
-  tags: string[];
-  environments: { name: string; enabled: boolean }[];
-  updated: string;
-  archived: boolean;
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
-const mockFlags: Flag[] = [
-  { id: "1", key: "new-checkout-flow", name: "New Checkout Flow", type: "boolean", tags: ["frontend", "experiment"], environments: [{ name: "Production", enabled: true }, { name: "Staging", enabled: true }, { name: "Development", enabled: true }], updated: "2 min ago", archived: false },
-  { id: "2", key: "dark-mode-v2", name: "Dark Mode V2", type: "boolean", tags: ["frontend", "ui"], environments: [{ name: "Production", enabled: false }, { name: "Staging", enabled: true }, { name: "Development", enabled: true }], updated: "1 hr ago", archived: false },
-  { id: "3", key: "pricing-experiment", name: "Pricing Page Experiment", type: "string", tags: ["experiment", "growth"], environments: [{ name: "Production", enabled: false }, { name: "Staging", enabled: true }, { name: "Development", enabled: true }], updated: "3 hrs ago", archived: false },
-  { id: "4", key: "ai-recommendations", name: "AI Recommendations", type: "boolean", tags: ["backend", "ai"], environments: [{ name: "Production", enabled: true }, { name: "Staging", enabled: true }, { name: "Development", enabled: true }], updated: "5 hrs ago", archived: false },
-  { id: "5", key: "new-onboarding", name: "New Onboarding Flow", type: "json", tags: ["frontend", "growth"], environments: [{ name: "Production", enabled: false }, { name: "Staging", enabled: false }, { name: "Development", enabled: true }], updated: "1 day ago", archived: false },
-  { id: "6", key: "rate-limiting-v2", name: "Rate Limiting V2", type: "boolean", tags: ["backend", "infra"], environments: [{ name: "Production", enabled: true }, { name: "Staging", enabled: true }, { name: "Development", enabled: true }], updated: "2 days ago", archived: false },
-  { id: "7", key: "multivariate-cta", name: "Multivariate CTA Test", type: "string", tags: ["experiment", "frontend"], environments: [{ name: "Production", enabled: false }, { name: "Staging", enabled: true }, { name: "Development", enabled: true }], updated: "3 days ago", archived: false },
-  { id: "8", key: "legacy-payment-flow", name: "Legacy Payment Flow", type: "boolean", tags: ["backend"], environments: [{ name: "Production", enabled: false }, { name: "Staging", enabled: false }, { name: "Development", enabled: false }], updated: "5 days ago", archived: true },
-];
-
 export default function FlagsPage() {
+  const { project, api, loading: projectLoading } = useProject();
   const [search, setSearch] = useState("");
   const [filterEnv, setFilterEnv] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
 
-  const filtered = mockFlags.filter((f) => {
+  const { data: flags, loading, error, refetch } = useApiData(
+    () => (project ? api.listFlags(project.id) : Promise.resolve([])),
+    [project?.id]
+  );
+
+  const { data: environments } = useApiData(
+    () => (project ? api.listEnvironments(project.id) : Promise.resolve([])),
+    [project?.id]
+  );
+
+  if (projectLoading || loading) return <LoadingState label="Loading flags..." />;
+  if (error) return <ErrorState message={error} onRetry={refetch} />;
+
+  const filtered = (flags ?? []).filter((f) => {
     if (!showArchived && f.archived) return false;
     if (search && !f.key.includes(search) && !f.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterEnv !== "all") {
-      const env = f.environments.find((e) => e.name === filterEnv);
+      const env = f.environments?.find((e) => e.environment_name === filterEnv);
       if (!env?.enabled) return false;
     }
     return true;
   });
+
+  async function handleToggle(flagKey: string, envId: string, currentEnabled: boolean) {
+    if (!project) return;
+    try {
+      await api.toggleFlag(project.id, flagKey, envId, !currentEnabled);
+      refetch();
+    } catch (e) {
+      console.error("Toggle failed:", e);
+    }
+  }
 
   return (
     <div className="p-6 md:p-8 relative z-10 space-y-6">
@@ -60,7 +77,6 @@ export default function FlagsPage() {
 
       {/* Filters bar */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Search */}
         <div className="flex items-center gap-2 px-3 py-2 bg-bg-card border border-border flex-1 min-w-[200px] max-w-sm">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
             <circle cx="7" cy="7" r="5.5" stroke="#555" strokeWidth="1.2" />
@@ -75,19 +91,19 @@ export default function FlagsPage() {
           />
         </div>
 
-        {/* Environment filter */}
         <select
           value={filterEnv}
           onChange={(e) => setFilterEnv(e.target.value)}
           className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.6rem] text-text-secondary uppercase tracking-wider outline-none cursor-pointer"
         >
           <option value="all">All Environments</option>
-          <option value="Production">Production</option>
-          <option value="Staging">Staging</option>
-          <option value="Development">Development</option>
+          {(environments ?? []).map((env) => (
+            <option key={env.id} value={env.name}>
+              {env.name}
+            </option>
+          ))}
         </select>
 
-        {/* Show archived */}
         <button
           onClick={() => setShowArchived(!showArchived)}
           className={`px-3 py-2 border font-mono text-[0.6rem] uppercase tracking-wider transition-colors ${
@@ -102,7 +118,6 @@ export default function FlagsPage() {
 
       {/* Flags table */}
       <div className="border border-border overflow-x-auto">
-        {/* Table header */}
         <div className="grid grid-cols-[40px_1fr_80px_140px_200px_90px] min-w-[700px] px-5 py-2.5 border-b border-border bg-bg-card">
           {["", "Flag", "Type", "Tags", "Environments", "Updated"].map((h) => (
             <span key={h} className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em]">
@@ -111,89 +126,90 @@ export default function FlagsPage() {
           ))}
         </div>
 
-        {/* Rows */}
         <div className="divide-y divide-border min-w-[700px]">
-          {filtered.map((flag) => (
-            <div
-              key={flag.id}
-              className={`grid grid-cols-[40px_1fr_80px_140px_200px_90px] px-5 py-3 hover:bg-bg-card/50 transition-colors cursor-pointer group items-center ${
-                flag.archived ? "opacity-50" : ""
-              }`}
-            >
-              {/* Toggle */}
-              <div>
-                <button
-                  className={`w-7 h-4 rounded-full p-[2px] transition-colors ${
-                    flag.environments[0]?.enabled ? "bg-accent-red" : "bg-[#2a2720]"
-                  }`}
-                >
-                  <div
-                    className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                      flag.environments[0]?.enabled ? "translate-x-3" : "translate-x-0"
+          {filtered.map((flag) => {
+            const prodEnv = flag.environments?.find((e) => e.environment_slug === "production");
+            const firstEnvEnabled = prodEnv?.enabled ?? flag.environments?.[0]?.enabled ?? false;
+            return (
+              <div
+                key={flag.id}
+                className={`grid grid-cols-[40px_1fr_80px_140px_200px_90px] px-5 py-3 hover:bg-bg-card/50 transition-colors cursor-pointer group items-center ${
+                  flag.archived ? "opacity-50" : ""
+                }`}
+              >
+                <div>
+                  <button
+                    onClick={() => {
+                      const envTarget = prodEnv ?? flag.environments?.[0];
+                      if (envTarget) handleToggle(flag.key, envTarget.environment_id, envTarget.enabled);
+                    }}
+                    className={`w-7 h-4 rounded-full p-[2px] transition-colors ${
+                      firstEnvEnabled ? "bg-accent-red" : "bg-[#2a2720]"
                     }`}
-                  />
-                </button>
-              </div>
-
-              {/* Flag key + name */}
-              <div className="min-w-0 pr-4">
-                <div className="font-mono text-[0.7rem] text-text-primary group-hover:text-accent-red transition-colors truncate">
-                  {flag.key}
-                </div>
-                <div className="font-mono text-[0.5rem] text-text-muted truncate">
-                  {flag.name}
-                </div>
-              </div>
-
-              {/* Type */}
-              <span className="font-mono text-[0.5rem] text-text-muted/70 uppercase tracking-wider border border-border px-1.5 py-0.5 w-fit">
-                {flag.type}
-              </span>
-
-              {/* Tags */}
-              <div className="flex gap-1 flex-wrap">
-                {flag.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="font-mono text-[0.45rem] text-text-muted uppercase tracking-wider bg-bg-card border border-border px-1.5 py-0.5"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              {/* Environments */}
-              <div className="flex gap-1.5">
-                {flag.environments.map((env) => (
-                  <div
-                    key={env.name}
-                    className="flex items-center gap-1"
-                    title={`${env.name}: ${env.enabled ? "ON" : "OFF"}`}
                   >
                     <div
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        env.enabled ? "bg-green-500" : "bg-[#333]"
+                      className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                        firstEnvEnabled ? "translate-x-3" : "translate-x-0"
                       }`}
                     />
-                    <span className="font-mono text-[0.45rem] text-text-muted uppercase">
-                      {env.name.slice(0, 4)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  </button>
+                </div>
 
-              {/* Updated */}
-              <span className="font-mono text-[0.5rem] text-text-muted/60 text-right">
-                {flag.updated}
-              </span>
-            </div>
-          ))}
+                <div className="min-w-0 pr-4">
+                  <div className="font-mono text-[0.7rem] text-text-primary group-hover:text-accent-red transition-colors truncate">
+                    {flag.key}
+                  </div>
+                  <div className="font-mono text-[0.5rem] text-text-muted truncate">
+                    {flag.name}
+                  </div>
+                </div>
+
+                <span className="font-mono text-[0.5rem] text-text-muted/70 uppercase tracking-wider border border-border px-1.5 py-0.5 w-fit">
+                  {flag.flag_type}
+                </span>
+
+                <div className="flex gap-1 flex-wrap">
+                  {flag.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="font-mono text-[0.45rem] text-text-muted uppercase tracking-wider bg-bg-card border border-border px-1.5 py-0.5"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex gap-1.5">
+                  {(flag.environments ?? []).map((env) => (
+                    <div
+                      key={env.environment_id}
+                      className="flex items-center gap-1"
+                      title={`${env.environment_name}: ${env.enabled ? "ON" : "OFF"}`}
+                    >
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          env.enabled ? "bg-green-500" : "bg-[#333]"
+                        }`}
+                      />
+                      <span className="font-mono text-[0.45rem] text-text-muted uppercase">
+                        {env.environment_name.slice(0, 4)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <span className="font-mono text-[0.5rem] text-text-muted/60 text-right">
+                  {timeAgo(flag.updated_at)}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {filtered.length === 0 && (
           <div className="px-5 py-12 text-center">
             <span className="font-mono text-[0.6rem] text-text-muted uppercase tracking-wider">
-              No flags match your filters.
+              {(flags ?? []).length === 0 ? "No flags yet. Create your first flag to get started." : "No flags match your filters."}
             </span>
           </div>
         )}
