@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::middleware::auth::AuthInfo;
+use crate::audit::{AuditAction, AuditContext};
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -61,6 +62,7 @@ pub async fn create_segment(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
     Extension(_auth): Extension<AuthInfo>,
+    Extension(audit_ctx): Extension<AuditContext>,
     Json(req): Json<CreateSegmentRequest>,
 ) -> Result<(StatusCode, Json<SegmentResponse>), ApiError> {
     let segment = state
@@ -99,12 +101,18 @@ pub async fn create_segment(
 
     let _ = state
         .store
-        .create_audit_log(
+        .create_audit_log_enriched(
             project_id,
-            None,
-            "segment_created",
+            &audit_ctx,
+            AuditAction::SegmentCreated.as_str(),
             "segment",
             Some(segment.id),
+            None,
+            None,
+            None,
+            None,
+            Some(AuditAction::SegmentCreated.severity().as_str()),
+            None,
             None,
             None,
         )

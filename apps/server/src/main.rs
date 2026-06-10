@@ -1,4 +1,5 @@
 mod api;
+mod audit;
 mod auth;
 mod broadcaster;
 mod config;
@@ -6,6 +7,7 @@ mod state;
 mod store;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     middleware as axum_mw,
@@ -17,13 +19,15 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{fmt, EnvFilter};
 use axum::http::Request;
 
+use crate::api::middleware::audit::audit_context_middleware;
 use crate::api::middleware::auth::{require_auth, require_sdk_key};
 use crate::api::routes::*;
 use crate::auth::jwt::JwksCache;
 use crate::broadcaster::{Broadcaster, ConfigChangeEvent};
 use crate::config::Config;
-use crate::state::AppState;
+use crate::state::{AppState, RedisCircuitBreaker};
 use crate::store::{PostgresStore, RedisStore};
+use tokio::sync::{Mutex, RwLock};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -106,6 +110,12 @@ async fn main() -> anyhow::Result<()> {
         redis,
         jwks,
         broadcaster,
+        local_cache: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        sdk_auth_local_cache: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        redis_circuit_breaker: Arc::new(Mutex::new(RedisCircuitBreaker::new(
+            Duration::from_secs(config.redis_cb_initial_backoff_secs),
+            Duration::from_secs(config.redis_cb_max_backoff_secs),
+        ))),
     };
 
     // Build router
@@ -116,17 +126,23 @@ async fn main() -> anyhow::Result<()> {
         // Projects API (JWT auth, top-level)
         .nest(
             "/api/v1",
-            projects_routes().layer(axum_mw::from_fn_with_state(state.clone(), require_auth)),
+            projects_routes()
+                .layer(axum_mw::from_fn(audit_context_middleware))
+                .layer(axum_mw::from_fn_with_state(state.clone(), require_auth)),
         )
         // Management API (JWT auth)
         .nest(
             "/api/v1/projects/{project_id}",
-            management_routes().layer(axum_mw::from_fn_with_state(state.clone(), require_auth)),
+            management_routes()
+                .layer(axum_mw::from_fn(audit_context_middleware))
+                .layer(axum_mw::from_fn_with_state(state.clone(), require_auth)),
         )
         // Evaluation API (SDK key auth)
         .nest(
             "/api/v1",
-            evaluation_routes().layer(axum_mw::from_fn_with_state(state.clone(), require_sdk_key)),
+            evaluation_routes()
+                .layer(axum_mw::from_fn(audit_context_middleware))
+                .layer(axum_mw::from_fn_with_state(state.clone(), require_sdk_key)),
         )
         // Global middleware
         .layer(
@@ -226,6 +242,7 @@ fn management_routes() -> Router<AppState> {
             "/sdk-keys",
             get(sdk_keys::list_sdk_keys).post(sdk_keys::create_sdk_key),
         )
+        .route("/sdk-connections", get(sdk_keys::sdk_connections))
         .route("/sdk-keys/{key_id}/revoke", post(sdk_keys::revoke_sdk_key))
         .route("/audit-log", get(audit_log::list_audit_log))
 }
@@ -235,5 +252,6 @@ fn evaluation_routes() -> Router<AppState> {
         .route("/evaluate", post(evaluate::evaluate))
         .route("/evaluate/batch", post(evaluate::evaluate_batch))
         .route("/flags-config", get(evaluate::flags_config))
+        .route("/heartbeat", post(heartbeat::heartbeat))
         .route("/stream", get(crate::api::routes::stream::stream))
 }

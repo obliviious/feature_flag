@@ -3,6 +3,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::audit::AuditContext;
 use super::models::*;
 use eval_core::types as eval;
 
@@ -482,16 +483,6 @@ impl PostgresStore {
         Ok(row)
     }
 
-    pub async fn get_sdk_key_by_hash(&self, key_hash: &str) -> Result<Option<SdkKeyRow>> {
-        let row = sqlx::query_as::<_, SdkKeyRow>(
-            &format!("SELECT {SDK_KEY_COLS} FROM sdk_keys WHERE key_hash = $1 AND revoked_at IS NULL"),
-        )
-        .bind(key_hash)
-        .fetch_optional(&self.pool)
-        .await?;
-        Ok(row)
-    }
-
     pub async fn update_sdk_key_last_used(&self, key_id: Uuid) -> Result<()> {
         sqlx::query("UPDATE sdk_keys SET last_used_at = NOW() WHERE id = $1")
             .bind(key_id)
@@ -704,17 +695,75 @@ impl PostgresStore {
         before_state: Option<&serde_json::Value>,
         after_state: Option<&serde_json::Value>,
     ) -> Result<AuditLogRow> {
+        let ctx = AuditContext::system("legacy");
+        self.create_audit_log_enriched(
+            project_id,
+            &ctx,
+            action,
+            entity_type,
+            entity_id,
+            before_state,
+            after_state,
+            None,
+            None,
+            None,
+            None,
+            None,
+            actor_email.map(ToString::to_string),
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_audit_log_enriched(
+        &self,
+        project_id: Uuid,
+        ctx: &AuditContext,
+        action: &str,
+        entity_type: &str,
+        entity_id: Option<Uuid>,
+        before_state: Option<&serde_json::Value>,
+        after_state: Option<&serde_json::Value>,
+        diff: Option<&serde_json::Value>,
+        metadata: Option<&serde_json::Value>,
+        severity_override: Option<&str>,
+        environment_id: Option<Uuid>,
+        environment_name: Option<&str>,
+        actor_email_override: Option<String>,
+    ) -> Result<AuditLogRow> {
+        let severity = severity_override.unwrap_or("info");
         let row = sqlx::query_as::<_, AuditLogRow>(
-            "INSERT INTO audit_log (project_id, actor_email, action, entity_type, entity_id, before_state, after_state)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+            "INSERT INTO audit_log (
+                project_id, actor_id, actor_email, actor_type, actor_name, action,
+                entity_type, entity_id, before_state, after_state, diff, metadata,
+                severity, environment_id, environment_name, ip_address, user_agent, request_id
+             ) VALUES (
+                $1, $2, $3, $4, $5, $6,
+                $7, $8, $9, $10, $11, $12,
+                $13, $14, $15, $16::INET, $17, $18
+             ) RETURNING
+                id, project_id, actor_id, actor_email, actor_type, actor_name, action, entity_type, entity_id,
+                before_state, after_state, diff, metadata, severity, environment_id, environment_name,
+                ip_address::TEXT AS ip_address, user_agent, request_id, created_at",
         )
         .bind(project_id)
-        .bind(actor_email)
+        .bind(ctx.actor_id)
+        .bind(actor_email_override.or_else(|| ctx.actor_email.clone()))
+        .bind(ctx.actor_type.as_str())
+        .bind(ctx.actor_name.clone())
         .bind(action)
         .bind(entity_type)
         .bind(entity_id)
         .bind(before_state)
         .bind(after_state)
+        .bind(diff)
+        .bind(metadata)
+        .bind(severity)
+        .bind(environment_id)
+        .bind(environment_name)
+        .bind(ctx.ip_address.map(|ip| ip.to_string()))
+        .bind(ctx.user_agent.clone())
+        .bind(ctx.request_id)
         .fetch_one(&self.pool)
         .await?;
         Ok(row)
@@ -723,13 +772,41 @@ impl PostgresStore {
     pub async fn list_audit_log(
         &self,
         project_id: Uuid,
+        actor_email: Option<&str>,
+        action: Option<&str>,
+        entity_type: Option<&str>,
+        entity_id: Option<Uuid>,
+        severity: Option<&str>,
+        environment_id: Option<Uuid>,
+        since_hours: Option<i64>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<AuditLogRow>> {
         let rows = sqlx::query_as::<_, AuditLogRow>(
-            "SELECT * FROM audit_log WHERE project_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+            "SELECT
+                id, project_id, actor_id, actor_email, actor_type, actor_name, action, entity_type, entity_id,
+                before_state, after_state, diff, metadata, severity, environment_id, environment_name,
+                ip_address::TEXT AS ip_address, user_agent, request_id, created_at
+             FROM audit_log
+             WHERE project_id = $1
+               AND ($2::TEXT IS NULL OR actor_email = $2)
+               AND ($3::TEXT IS NULL OR action = $3)
+               AND ($4::TEXT IS NULL OR entity_type = $4)
+               AND ($5::UUID IS NULL OR entity_id = $5)
+               AND ($6::TEXT IS NULL OR severity = $6)
+               AND ($7::UUID IS NULL OR environment_id = $7)
+               AND ($8::BIGINT IS NULL OR created_at >= NOW() - ($8::TEXT || ' hours')::INTERVAL)
+             ORDER BY created_at DESC
+             LIMIT $9 OFFSET $10",
         )
         .bind(project_id)
+        .bind(actor_email)
+        .bind(action)
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(severity)
+        .bind(environment_id)
+        .bind(since_hours)
         .bind(limit)
         .bind(offset)
         .fetch_all(&self.pool)

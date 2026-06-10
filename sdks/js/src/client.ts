@@ -1,6 +1,7 @@
 import type {
   EvaluationContext,
   EvaluationResult,
+  FlagConfig,
   FlagsConfig,
 } from "./types";
 import { Evaluator } from "./evaluator";
@@ -25,6 +26,14 @@ export interface FlagForgeConfig {
   onError?: (error: Error) => void;
   /** Called when the client has fetched initial config and is ready. */
   onReady?: () => void;
+  /** Heartbeat interval in ms for SDK connection tracking (default: 30000). */
+  heartbeatIntervalMs?: number;
+  /** Optional stable SDK instance ID; defaults to a generated identifier. */
+  sdkInstanceId?: string;
+  /** Optional SDK runtime info (e.g. node, edge, browser). */
+  runtime?: string;
+  /** Optional SDK version for backend visibility. */
+  sdkVersion?: string;
 }
 
 /**
@@ -42,20 +51,28 @@ export class FlagForgeClient {
   private streamAbort: AbortController | null = null;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  private sdkInstanceId: string;
+  private currentConfig: FlagsConfig | null = null;
+  private appliedSeqs = new Set<number>();
+  private appliedSeqQueue: number[] = [];
+  private readonly maxAppliedSeqs = 1000;
 
   constructor(config: FlagForgeConfig) {
     this.config = {
       baseUrl: "http://35.173.133.219:8080",
       pollingInterval: 30_000,
       streaming: true,
+      heartbeatIntervalMs: 30_000,
       ...config,
     };
 
     this.apiKey = config.serverKey ?? config.clientKey ?? "";
     this.isServerSdk = !!config.serverKey;
     this.evaluator = new Evaluator();
+    this.sdkInstanceId = config.sdkInstanceId ?? makeSdkInstanceId();
 
     if (!this.apiKey) {
       throw new Error(
@@ -75,6 +92,7 @@ export class FlagForgeClient {
     try {
       if (this.isServerSdk) {
         const config = await this.fetchFlagsConfig();
+        this.currentConfig = config;
         this.evaluator.update(config);
       }
       this.initialized = true;
@@ -88,6 +106,7 @@ export class FlagForgeClient {
           this.startPolling();
         }
       }
+      this.startHeartbeat();
     } catch (error) {
       this.config.onError?.(
         error instanceof Error ? error : new Error(String(error)),
@@ -99,6 +118,7 @@ export class FlagForgeClient {
       if (this.isServerSdk) {
         this.startPolling();
       }
+      this.startHeartbeat();
     }
   }
 
@@ -201,6 +221,10 @@ export class FlagForgeClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
   }
 
   /** Whether the client has finished initialization. */
@@ -247,9 +271,9 @@ export class FlagForgeClient {
       let buffer = "";
 
       while (!abort.signal.aborted) {
+
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         const { events, remaining } = parseSSE(buffer);
         buffer = remaining;
@@ -259,11 +283,60 @@ export class FlagForgeClient {
             try {
               const raw = JSON.parse(event.data);
               const config = transformFlagsConfig(raw);
+              this.currentConfig = config;
               this.evaluator.update(config);
               this.config.onUpdate?.(config);
             } catch (e) {
               this.config.onError?.(
                 new Error(`Failed to parse config event: ${e}`),
+              );
+            }
+          } else if (event.type === "config_delta" && event.data) {
+            try {
+              const raw = JSON.parse(event.data) as RawConfigDelta;
+              if (typeof raw.seq === "number") {
+                if (this.hasAppliedSeq(raw.seq)) {
+                  continue;
+                }
+                this.trackAppliedSeq(raw.seq);
+              }
+              if (!this.currentConfig) {
+                continue;
+              }
+              if (raw.from_version !== this.currentConfig.version) {
+                // Version mismatch, force a full refresh for consistency.
+                const full = await this.fetchFlagsConfig();
+                this.currentConfig = full;
+                this.evaluator.update(full);
+                this.config.onUpdate?.(full);
+                continue;
+              }
+
+              const changedTransformed = transformFlagsConfig({
+                flags: raw.changed_flags ?? {},
+                segments: {},
+                version: raw.to_version,
+              });
+              const nextFlags: Record<string, FlagConfig> = {
+                ...this.currentConfig.flags,
+                ...changedTransformed.flags,
+              };
+              for (const deletedKey of raw.deleted_flags ?? []) {
+                delete nextFlags[deletedKey];
+              }
+
+              const nextConfig: FlagsConfig = {
+                flags: nextFlags,
+                // Segment deltas are not streamed yet; keep existing map.
+                segments: this.currentConfig.segments,
+                version: raw.to_version,
+              };
+              this.currentConfig = nextConfig;
+              this.evaluator.update(nextConfig);
+              this.config.onUpdate?.(nextConfig);
+            } catch (e) {
+              this.config.onError?.(
+                new Error(`Failed to apply config delta: ${e}`),
               );
             }
           } else if (event.type === "error") {
@@ -410,6 +483,7 @@ export class FlagForgeClient {
     this.pollingTimer = setInterval(async () => {
       try {
         const config = await this.fetchFlagsConfig();
+        this.currentConfig = config;
         this.evaluator.update(config);
         this.config.onUpdate?.(config);
       } catch (error) {
@@ -418,6 +492,57 @@ export class FlagForgeClient {
         );
       }
     }, this.config.pollingInterval);
+  }
+
+  private startHeartbeat(): void {
+    const interval = this.config.heartbeatIntervalMs;
+    if (!interval || interval <= 0) return;
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+
+    // Send once immediately for fast visibility.
+    this.sendHeartbeat();
+
+    this.heartbeatTimer = setInterval(() => {
+      this.sendHeartbeat();
+    }, interval);
+  }
+
+  private async sendHeartbeat(): Promise<void> {
+    try {
+      await fetch(`${this.config.baseUrl}/api/v1/heartbeat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: this.apiKey,
+        },
+        body: JSON.stringify({
+          sdk_instance_id: this.sdkInstanceId,
+          sdk_version: this.config.sdkVersion ?? "unknown",
+          runtime: this.config.runtime ?? detectRuntime(),
+        }),
+      });
+    } catch {
+      // Heartbeat is best-effort and should never affect evaluation behavior.
+    }
+  }
+
+  private hasAppliedSeq(seq: number): boolean {
+    return this.appliedSeqs.has(seq);
+  }
+
+  private trackAppliedSeq(seq: number): void {
+    if (this.appliedSeqs.has(seq)) return;
+    this.appliedSeqs.add(seq);
+    this.appliedSeqQueue.push(seq);
+    while (this.appliedSeqQueue.length > this.maxAppliedSeqs) {
+      const oldest = this.appliedSeqQueue.shift();
+      if (oldest !== undefined) {
+        this.appliedSeqs.delete(oldest);
+      }
+    }
   }
 }
 
@@ -428,6 +553,34 @@ export class FlagForgeClient {
 interface SSEEvent {
   type: string;
   data: string;
+}
+
+interface RawConfigDelta {
+  seq?: number;
+  from_version: number;
+  to_version: number;
+  changed_flags: Record<string, unknown>;
+  deleted_flags: string[];
+}
+
+function makeSdkInstanceId(): string {
+  try {
+    const c = globalThis.crypto;
+    if (c && typeof c.randomUUID === "function") {
+      return c.randomUUID();
+    }
+  } catch {
+    // noop
+  }
+  return `sdk_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function detectRuntime(): string {
+  if (typeof window !== "undefined") return "browser";
+  if (typeof process !== "undefined" && process.release?.name) {
+    return process.release.name;
+  }
+  return "unknown";
 }
 
 /**

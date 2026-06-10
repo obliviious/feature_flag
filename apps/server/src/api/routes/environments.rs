@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::middleware::auth::AuthInfo;
+use crate::audit::{AuditAction, AuditContext};
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +38,7 @@ pub async fn create_environment(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
     Extension(_auth): Extension<AuthInfo>,
+    Extension(audit_ctx): Extension<AuditContext>,
     Json(req): Json<CreateEnvironmentRequest>,
 ) -> Result<(StatusCode, Json<EnvironmentResponse>), ApiError> {
     let env = state
@@ -47,7 +49,21 @@ pub async fn create_environment(
 
     let _ = state
         .store
-        .create_audit_log(project_id, None, "environment_created", "environment", Some(env.id), None, None)
+        .create_audit_log_enriched(
+            project_id,
+            &audit_ctx,
+            AuditAction::EnvironmentCreated.as_str(),
+            "environment",
+            Some(env.id),
+            None,
+            None,
+            None,
+            None,
+            Some(AuditAction::EnvironmentCreated.severity().as_str()),
+            Some(env.id),
+            Some(&env.name),
+            None,
+        )
         .await;
 
     Ok((

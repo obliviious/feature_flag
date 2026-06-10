@@ -5,8 +5,16 @@ use uuid::Uuid;
 /// Event published when a flag config changes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigChangeEvent {
+    #[serde(default)]
+    pub seq: i64,
     pub environment_id: Uuid,
     pub version: i64,
+    #[serde(default)]
+    pub full_reload: bool,
+    #[serde(default)]
+    pub changed_flags: Vec<String>,
+    #[serde(default)]
+    pub deleted_flags: Vec<String>,
 }
 
 /// Fan-out broadcaster backed by a tokio broadcast channel.

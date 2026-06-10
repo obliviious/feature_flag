@@ -1,6 +1,7 @@
 use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 
+use crate::audit::{AuditAction, AuditContext};
 use crate::auth::api_keys;
 use crate::state::AppState;
 
@@ -113,12 +114,18 @@ pub async fn setup(
 
     let _ = state
         .store
-        .create_audit_log(
+        .create_audit_log_enriched(
             project.id,
-            None,
-            "project_created",
+            &AuditContext::system("setup"),
+            AuditAction::ProjectCreated.as_str(),
             "project",
             Some(project.id),
+            None,
+            None,
+            None,
+            None,
+            Some(AuditAction::ProjectCreated.severity().as_str()),
+            None,
             None,
             None,
         )

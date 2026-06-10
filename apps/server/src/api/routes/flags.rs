@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::middleware::auth::AuthInfo;
+use crate::audit::{compute_diff, AuditAction, AuditContext};
 use crate::state::AppState;
 
 // ============================================================
@@ -125,7 +126,12 @@ async fn build_env_states(
 }
 
 /// Publish config change events for all environments in a project.
-async fn notify_config_change(state: &AppState, project_id: Uuid) {
+async fn notify_config_change(
+    state: &AppState,
+    project_id: Uuid,
+    changed_flags: Vec<String>,
+    deleted_flags: Vec<String>,
+) {
     let environments = match state.store.list_environments(project_id).await {
         Ok(envs) => envs,
         Err(e) => {
@@ -143,7 +149,20 @@ async fn notify_config_change(state: &AppState, project_id: Uuid) {
 
         if let Some(ref redis) = state.redis {
             let _ = redis.invalidate_config(env.id).await;
-            let _ = redis.publish_config_change(env.id, version).await;
+            let seq = redis
+                .next_config_change_seq()
+                .await
+                .unwrap_or_else(|_| chrono::Utc::now().timestamp_millis());
+            let _ = redis
+                .publish_config_change(
+                    seq,
+                    env.id,
+                    version,
+                    false,
+                    &changed_flags,
+                    &deleted_flags,
+                )
+                .await;
         }
     }
 }
@@ -156,6 +175,7 @@ pub async fn create_flag(
     State(state): State<AppState>,
     Path(project_id): Path<Uuid>,
     Extension(_auth): Extension<AuthInfo>,
+    Extension(audit_ctx): Extension<AuditContext>,
     Json(req): Json<CreateFlagRequest>,
 ) -> Result<(StatusCode, Json<FlagResponse>), ApiError> {
     // Create the flag
@@ -210,16 +230,29 @@ pub async fn create_flag(
             .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
     }
 
-    notify_config_change(&state, project_id).await;
+    notify_config_change(&state, project_id, vec![flag.key.clone()], Vec::new()).await;
 
+    let after_state = serde_json::json!({
+        "key": flag.key,
+        "name": flag.name,
+        "flag_type": flag.flag_type,
+        "tags": flag.tags,
+        "archived": flag.archived,
+    });
     let _ = state
         .store
-        .create_audit_log(
+        .create_audit_log_enriched(
             project_id,
-            None,
-            "flag_created",
+            &audit_ctx,
+            AuditAction::FlagCreated.as_str(),
             "flag",
             Some(flag.id),
+            None,
+            Some(&after_state),
+            None,
+            None,
+            Some(AuditAction::FlagCreated.severity().as_str()),
+            None,
             None,
             None,
         )
@@ -339,6 +372,7 @@ pub async fn update_flag(
     State(state): State<AppState>,
     Path((project_id, flag_key)): Path<(Uuid, String)>,
     Extension(_auth): Extension<AuthInfo>,
+    Extension(audit_ctx): Extension<AuditContext>,
     Json(req): Json<UpdateFlagRequest>,
 ) -> Result<Json<FlagResponse>, ApiError> {
     let flag = state
@@ -360,16 +394,28 @@ pub async fn update_flag(
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
 
-    notify_config_change(&state, project_id).await;
+    notify_config_change(&state, project_id, vec![updated.key.clone()], Vec::new()).await;
 
+    let before_state = serde_json::to_value(&flag).ok();
+    let after_state = serde_json::to_value(&updated).ok();
+    let diff = match (&before_state, &after_state) {
+        (Some(b), Some(a)) => Some(compute_diff(b, a)),
+        _ => None,
+    };
     let _ = state
         .store
-        .create_audit_log(
+        .create_audit_log_enriched(
             project_id,
-            None,
-            "flag_updated",
+            &audit_ctx,
+            AuditAction::FlagUpdated.as_str(),
             "flag",
             Some(updated.id),
+            before_state.as_ref(),
+            after_state.as_ref(),
+            diff.as_ref(),
+            None,
+            Some(AuditAction::FlagUpdated.severity().as_str()),
+            None,
             None,
             None,
         )
@@ -410,6 +456,7 @@ pub async fn delete_flag(
     State(state): State<AppState>,
     Path((project_id, flag_key)): Path<(Uuid, String)>,
     Extension(_auth): Extension<AuthInfo>,
+    Extension(audit_ctx): Extension<AuditContext>,
 ) -> Result<StatusCode, ApiError> {
     let flag = state
         .store
@@ -424,16 +471,23 @@ pub async fn delete_flag(
         .await
         .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
 
-    notify_config_change(&state, project_id).await;
+    notify_config_change(&state, project_id, Vec::new(), vec![flag.key.clone()]).await;
 
+    let before_state = serde_json::to_value(&flag).ok();
     let _ = state
         .store
-        .create_audit_log(
+        .create_audit_log_enriched(
             project_id,
-            None,
-            "flag_deleted",
+            &audit_ctx,
+            AuditAction::FlagDeleted.as_str(),
             "flag",
             Some(flag.id),
+            before_state.as_ref(),
+            None,
+            None,
+            None,
+            Some(AuditAction::FlagDeleted.severity().as_str()),
+            None,
             None,
             None,
         )
@@ -446,6 +500,7 @@ pub async fn toggle_flag(
     State(state): State<AppState>,
     Path((project_id, flag_key)): Path<(Uuid, String)>,
     Extension(_auth): Extension<AuthInfo>,
+    Extension(audit_ctx): Extension<AuditContext>,
     Json(req): Json<ToggleFlagRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let flag = state
@@ -470,19 +525,41 @@ pub async fn toggle_flag(
 
     if let Some(ref redis) = state.redis {
         let _ = redis.invalidate_config(req.environment_id).await;
+        let seq = redis
+            .next_config_change_seq()
+            .await
+            .unwrap_or_else(|_| chrono::Utc::now().timestamp_millis());
         let _ = redis
-            .publish_config_change(req.environment_id, version)
+            .publish_config_change(
+                seq,
+                req.environment_id,
+                version,
+                false,
+                &[flag.key.clone()],
+                &[],
+            )
             .await;
     }
 
+    let before_state = serde_json::json!({ "enabled": !fe.enabled });
+    let after_state = serde_json::json!({ "enabled": fe.enabled });
+
+    
+    let diff = compute_diff(&before_state, &after_state);
     let _ = state
         .store
-        .create_audit_log(
+        .create_audit_log_enriched(
             project_id,
-            None,
-            "flag_toggled",
+            &audit_ctx,
+            AuditAction::FlagToggled.as_str(),
             "flag",
             Some(flag.id),
+            Some(&before_state),
+            Some(&after_state),
+            Some(&diff),
+            None,
+            Some(AuditAction::FlagToggled.severity().as_str()),
+            Some(req.environment_id),
             None,
             None,
         )

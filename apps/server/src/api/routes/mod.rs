@@ -3,6 +3,7 @@ pub mod environments;
 pub mod evaluate;
 pub mod flags;
 pub mod health;
+pub mod heartbeat;
 pub mod projects;
 pub mod sdk_keys;
 pub mod segments;
