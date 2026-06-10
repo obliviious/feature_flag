@@ -284,6 +284,32 @@ impl SqliteStore {
         Ok(rows)
     }
 
+    pub async fn update_flag_variant(
+        &self,
+        variant_id: Uuid,
+        flag_id: Uuid,
+        key: &str,
+        value: &serde_json::Value,
+        description: Option<&str>,
+    ) -> Result<FlagVariantRow> {
+        let row = sqlx::query_as::<_, FlagVariantRow>(
+            "UPDATE flag_variants SET
+                key = ?,
+                value = ?,
+                description = ?
+             WHERE id = ? AND flag_id = ?
+             RETURNING *",
+        )
+        .bind(key)
+        .bind(value)
+        .bind(description)
+        .bind(variant_id)
+        .bind(flag_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
     pub async fn create_flag_environment(
         &self,
         flag_id: Uuid,

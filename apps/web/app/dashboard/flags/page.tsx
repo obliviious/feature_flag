@@ -21,9 +21,17 @@ function timeAgo(dateStr: string) {
 }
 
 interface VariantInput {
+  id?: string;
   key: string;
   value: string;
   description: string;
+}
+
+function variantValueToString(value: unknown): string {
+  if (typeof value === "object" && value !== null) {
+    return JSON.stringify(value);
+  }
+  return String(value);
 }
 
 const DEFAULT_BOOLEAN_VARIANTS: VariantInput[] = [
@@ -68,6 +76,8 @@ export default function FlagsPage() {
   const [editForm, setEditForm] = useState({ name: "", description: "", tags: "", archived: false });
   const [updating, setUpdating] = useState(false);
   const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
+  const [variantDrafts, setVariantDrafts] = useState<Record<string, VariantInput[]>>({});
+  const [savingVariants, setSavingVariants] = useState<string | null>(null);
 
   const { data: flags, loading, error, refetch } = useApiData(
     () => (project ? api.listFlags(project.id) : Promise.resolve([])),
@@ -129,6 +139,71 @@ export default function FlagsPage() {
       tags: flag.tags.join(", "),
       archived: flag.archived,
     });
+  }
+
+  function openVariantEditor(flag: Flag) {
+    setVariantDrafts((prev) => ({
+      ...prev,
+      [flag.key]: flag.variants.map((v) => ({
+        id: v.id,
+        key: v.key,
+        value: variantValueToString(v.value),
+        description: v.description ?? "",
+      })),
+    }));
+  }
+
+  function toggleExpanded(flag: Flag) {
+    const next = expandedFlag === flag.key ? null : flag.key;
+    setExpandedFlag(next);
+    if (next) {
+      openVariantEditor(flag);
+    }
+  }
+
+  function updateVariantDraft(flagKey: string, index: number, field: keyof VariantInput, value: string) {
+    setVariantDrafts((prev) => {
+      const draft = [...(prev[flagKey] ?? [])];
+      draft[index] = { ...draft[index], [field]: value };
+      return { ...prev, [flagKey]: draft };
+    });
+  }
+
+  async function handleSaveVariants(flag: Flag) {
+    const draft = variantDrafts[flag.key];
+    if (!draft?.length) return;
+    if (draft.some((v) => !v.key.trim())) {
+      alert("Variant keys cannot be empty");
+      return;
+    }
+
+    setSavingVariants(flag.key);
+    try {
+      const updated = await api.updateFlagVariants(
+        project!.id,
+        flag.key,
+        draft.map((v) => ({
+          id: v.id!,
+          key: v.key.trim(),
+          value: parseVariantValue(v.value, flag.flag_type),
+          description: v.description.trim() || undefined,
+        }))
+      );
+      setVariantDrafts((prev) => ({
+        ...prev,
+        [flag.key]: updated.variants.map((v) => ({
+          id: v.id,
+          key: v.key,
+          value: variantValueToString(v.value),
+          description: v.description ?? "",
+        })),
+      }));
+      await refetch();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to save variants");
+    } finally {
+      setSavingVariants(null);
+    }
   }
 
   async function handleDelete(flagKey: string) {
@@ -305,7 +380,7 @@ export default function FlagsPage() {
                   </button>
                 </div>
 
-                <div className="min-w-0 pr-4 cursor-pointer" onClick={() => setExpandedFlag(isExpanded ? null : flag.key)}>
+                <div className="min-w-0 pr-4 cursor-pointer" onClick={() => toggleExpanded(flag)}>
                   <div className="font-mono text-[0.7rem] text-text-primary group-hover:text-accent-red transition-colors truncate">{flag.key}</div>
                   <div className="font-mono text-[0.5rem] text-text-muted truncate">{flag.name}</div>
                 </div>
@@ -361,18 +436,46 @@ export default function FlagsPage() {
               </div>
 
               {isExpanded && (
-                <div className="px-5 py-4 bg-bg-card/20 border-t border-border/50 ml-10 mr-5 mb-2">
+                <div className="px-5 py-4 bg-bg-card/20 border-t border-border/50 ml-10 mr-5 mb-2 space-y-3">
                   {flag.description && (
-                    <p className="font-mono text-[0.55rem] text-text-secondary mb-3">{flag.description}</p>
+                    <p className="font-mono text-[0.55rem] text-text-secondary mb-1">{flag.description}</p>
                   )}
-                  <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider mb-2">Variants</div>
-                  <div className="flex flex-wrap gap-2">
-                    {flag.variants.map((v) => (
-                      <span key={v.id} className="font-mono text-[0.55rem] bg-bg-card border border-border px-2 py-1">
-                        {v.key}: {JSON.stringify(v.value)}
-                      </span>
+                  <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider">Variants</div>
+                  <div className="space-y-2">
+                    {(variantDrafts[flag.key] ?? []).map((v, i) => (
+                      <div key={v.id ?? i} className="flex gap-2 items-center flex-wrap">
+                        <input
+                          type="text"
+                          value={v.key}
+                          onChange={(e) => updateVariantDraft(flag.key, i, "key", e.target.value)}
+                          className="w-24 bg-bg-card border border-border px-2 py-1.5 font-mono text-[0.6rem] text-text-primary outline-none focus:border-accent-red/50"
+                          placeholder="key"
+                        />
+                        <span className="font-mono text-[0.55rem] text-text-muted">:</span>
+                        <input
+                          type="text"
+                          value={v.value}
+                          onChange={(e) => updateVariantDraft(flag.key, i, "value", e.target.value)}
+                          className="w-28 bg-bg-card border border-border px-2 py-1.5 font-mono text-[0.6rem] text-text-primary outline-none focus:border-accent-red/50"
+                          placeholder="value"
+                        />
+                        <input
+                          type="text"
+                          value={v.description}
+                          onChange={(e) => updateVariantDraft(flag.key, i, "description", e.target.value)}
+                          className="flex-1 min-w-[120px] bg-bg-card border border-border px-2 py-1.5 font-mono text-[0.6rem] text-text-muted outline-none focus:border-accent-red/50"
+                          placeholder="description"
+                        />
+                      </div>
                     ))}
                   </div>
+                  <button
+                    onClick={() => handleSaveVariants(flag)}
+                    disabled={savingVariants === flag.key}
+                    className="font-mono text-[0.55rem] uppercase tracking-wider px-4 py-2 bg-accent-red text-white hover:bg-accent-red-hover transition-colors disabled:opacity-50"
+                  >
+                    {savingVariants === flag.key ? "Saving..." : "Save Variants"}
+                  </button>
                 </div>
               )}
               </div>

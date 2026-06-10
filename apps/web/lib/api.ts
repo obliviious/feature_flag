@@ -328,6 +328,16 @@ export function createApi(getToken: GetToken) {
         body: JSON.stringify(data),
       }),
 
+    updateFlagVariants: (
+      projectId: string,
+      flagKey: string,
+      variants: { id: string; key: string; value: unknown; description?: string }[]
+    ) =>
+      request<Flag>(getToken, `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/variants`, {
+        method: "PUT",
+        body: JSON.stringify({ variants }),
+      }),
+
     deleteFlag: (projectId: string, flagKey: string) =>
       request<void>(getToken, `${base(projectId)}/flags/${encodeURIComponent(flagKey)}`, {
         method: "DELETE",

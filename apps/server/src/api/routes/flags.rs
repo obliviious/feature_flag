@@ -47,6 +47,19 @@ pub struct UpdateFlagRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpdateVariantInput {
+    pub id: Uuid,
+    pub key: String,
+    pub value: serde_json::Value,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateFlagVariantsRequest {
+    pub variants: Vec<UpdateVariantInput>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ToggleFlagRequest {
     pub enabled: bool,
     pub environment_id: Uuid,
@@ -449,6 +462,106 @@ pub async fn update_flag(
         environments: env_states,
         created_at: updated.created_at.to_rfc3339(),
         updated_at: updated.updated_at.to_rfc3339(),
+    }))
+}
+
+pub async fn update_flag_variants(
+    State(state): State<AppState>,
+    Path((project_id, flag_key)): Path<(Uuid, String)>,
+    Extension(_auth): Extension<AuthInfo>,
+    Extension(audit_ctx): Extension<AuditContext>,
+    Json(req): Json<UpdateFlagVariantsRequest>,
+) -> Result<Json<FlagResponse>, ApiError> {
+    let flag = state
+        .store
+        .get_flag_by_key(project_id, &flag_key)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "Flag not found"))?;
+
+    let before_variants = state
+        .store
+        .get_flag_variants(flag.id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+
+    if req.variants.is_empty() {
+        return Err(err(StatusCode::BAD_REQUEST, "At least one variant is required"));
+    }
+
+    for v in &req.variants {
+        if v.key.trim().is_empty() {
+            return Err(err(StatusCode::BAD_REQUEST, "Variant key cannot be empty"));
+        }
+        state
+            .store
+            .update_flag_variant(v.id, flag.id, v.key.trim(), &v.value, v.description.as_deref())
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                if msg.contains("RowNotFound") || msg.contains("no rows") {
+                    err(StatusCode::NOT_FOUND, "Variant not found for this flag")
+                } else {
+                    err(StatusCode::INTERNAL_SERVER_ERROR, &msg)
+                }
+            })?;
+    }
+
+    notify_config_change(&state, project_id, vec![flag.key.clone()], Vec::new()).await;
+
+    let after_variants = state
+        .store
+        .get_flag_variants(flag.id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+
+    let before_state = serde_json::to_value(&before_variants).ok();
+    let after_state = serde_json::to_value(&after_variants).ok();
+    let diff = match (&before_state, &after_state) {
+        (Some(b), Some(a)) => Some(compute_diff(b, a)),
+        _ => None,
+    };
+    let _ = state
+        .store
+        .create_audit_log_enriched(
+            project_id,
+            &audit_ctx,
+            AuditAction::FlagUpdated.as_str(),
+            "flag",
+            Some(flag.id),
+            before_state.as_ref(),
+            after_state.as_ref(),
+            diff.as_ref(),
+            None,
+            Some(AuditAction::FlagUpdated.severity().as_str()),
+            None,
+            None,
+            None,
+        )
+        .await;
+
+    let env_states = build_env_states(&state, flag.id, project_id).await?;
+
+    Ok(Json(FlagResponse {
+        id: flag.id.to_string(),
+        key: flag.key,
+        name: flag.name,
+        description: flag.description,
+        flag_type: flag.flag_type,
+        tags: flag.tags,
+        archived: flag.archived,
+        variants: after_variants
+            .into_iter()
+            .map(|v| VariantResponse {
+                id: v.id.to_string(),
+                key: v.key,
+                value: v.value,
+                description: v.description,
+            })
+            .collect(),
+        environments: env_states,
+        created_at: flag.created_at.to_rfc3339(),
+        updated_at: flag.updated_at.to_rfc3339(),
     }))
 }
 
