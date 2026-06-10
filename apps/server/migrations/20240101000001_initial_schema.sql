@@ -129,7 +129,7 @@ CREATE TABLE segment_constraints (
         'contains', 'starts_with', 'ends_with', 'matches',
         'semver_eq', 'semver_gt', 'semver_lt'
     )),
-    values      TEXT NOT NULL DEFAULT '[]',
+    "values"    TEXT NOT NULL DEFAULT '[]',
     sort_order  INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );

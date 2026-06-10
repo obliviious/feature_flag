@@ -13,7 +13,7 @@ const FLAG_COLS: &str =
 const SEGMENT_COLS: &str =
     "id, project_id, key, name, description, match_type, created_at, updated_at";
 const CONSTRAINT_COLS: &str =
-    "id, segment_id, attribute, operator, values, sort_order, created_at";
+    r#"id, segment_id, attribute, operator, "values", sort_order, created_at"#;
 const SDK_KEY_COLS: &str =
     "id, environment_id, name, key_type, key_hash, key_prefix, last_used_at, created_at, revoked_at";
 
@@ -395,8 +395,8 @@ impl SqliteStore {
         let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, SegmentConstraintRow>(
             &format!(
-                "INSERT INTO segment_constraints (id, segment_id, attribute, operator, values, sort_order)
-             VALUES (?, ?, ?, ?, ?, ?) RETURNING {CONSTRAINT_COLS}"
+                r#"INSERT INTO segment_constraints (id, segment_id, attribute, operator, "values", sort_order)
+             VALUES (?, ?, ?, ?, ?, ?) RETURNING {CONSTRAINT_COLS}"#
             ),
         )
         .bind(id)
