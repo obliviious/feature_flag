@@ -25,8 +25,8 @@ Open-source feature flag platform with a Rust API server, Next.js dashboard, and
 | **`apps/server`** | REST API: management (JWT), evaluation (SDK keys), SSE streaming, heartbeats, audit log |
 | **`apps/web`** | Marketing site + dashboard UI; proxies API calls to the backend |
 | **`packages/eval-core`** | Shared Rust evaluation engine (targeting rules, rollouts, segments) |
-| **`sdks/js`** | TypeScript SDK — local eval (server keys) or remote eval (client keys) + SSE deltas |
-| **`sdks/react`** | React Provider and hooks built on `@flagforge/sdk-js` |
+| **`sdks/js`** | TypeScript SDK — local eval (server keys) or remote eval (client keys) + SSE deltas — [`@flagforge/sdk-js`](https://www.npmjs.com/package/@flagforge/sdk-js) |
+| **`sdks/react`** | React Provider and hooks built on `@flagforge/sdk-js` — [`@flagforge/sdk-react`](https://www.npmjs.com/package/@flagforge/sdk-react) |
 | **`packages/shared-types`** | Shared TypeScript types for API payloads |
 
 ### Request flows
@@ -186,6 +186,14 @@ feature_flag/
 
 ### JavaScript / TypeScript
 
+Install from npm:
+
+```bash
+pnpm add @flagforge/sdk-js
+```
+
+Or build from source:
+
 ```bash
 cd sdks/js
 pnpm install && pnpm build
@@ -208,6 +216,16 @@ const enabled = client.evaluate("my-feature-flag");
 Use `clientKey` instead of `serverKey` in browsers or untrusted environments — evaluation runs on the server.
 
 ### React
+
+Install from npm:
+
+```bash
+pnpm add @flagforge/sdk-react @flagforge/sdk-js
+```
+
+See [`sdks/react/README.md`](sdks/react/README.md) for Next.js setup.
+
+Or build from source:
 
 ```bash
 cd sdks/react
