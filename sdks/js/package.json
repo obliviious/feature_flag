@@ -1,6 +1,6 @@
 {
   "name": "@flagforge/sdk-js",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "FlagForge JavaScript/TypeScript SDK — local evaluation + real-time streaming",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,7 +13,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

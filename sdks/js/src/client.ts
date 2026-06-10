@@ -1,11 +1,13 @@
 import type {
   EvaluationContext,
   EvaluationResult,
-  FlagConfig,
   FlagsConfig,
 } from "./types";
+import { applyConfigDelta, type ConfigDelta } from "./delta";
 import { Evaluator } from "./evaluator";
+import { fetchWithRetry } from "./http";
 import { transformFlagsConfig, transformEvaluationResult } from "./transform";
+import { SDK_VERSION } from "./version";
 
 export interface FlagForgeConfig {
   /** Server SDK key (srv_...) for local evaluation. */
@@ -32,8 +34,12 @@ export interface FlagForgeConfig {
   sdkInstanceId?: string;
   /** Optional SDK runtime info (e.g. node, edge, browser). */
   runtime?: string;
-  /** Optional SDK version for backend visibility. */
+  /** Optional SDK version for backend visibility (default: package version). */
   sdkVersion?: string;
+  /** Max retries after HTTP 429 on eval/config requests (default: 3). */
+  rateLimitMaxRetries?: number;
+  /** Called before backing off on HTTP 429. */
+  onRateLimited?: (info: { retryAfterMs: number; attempt: number }) => void;
 }
 
 /**
@@ -62,10 +68,12 @@ export class FlagForgeClient {
 
   constructor(config: FlagForgeConfig) {
     this.config = {
-      baseUrl: "http://35.173.133.219:8080",
+      baseUrl: "http://localhost:8080",
       pollingInterval: 30_000,
       streaming: true,
       heartbeatIntervalMs: 30_000,
+      rateLimitMaxRetries: 3,
+      sdkVersion: SDK_VERSION,
       ...config,
     };
 
@@ -283,6 +291,7 @@ export class FlagForgeClient {
             try {
               const raw = JSON.parse(event.data);
               const config = transformFlagsConfig(raw);
+              this.resetAppliedSeqs();
               this.currentConfig = config;
               this.evaluator.update(config);
               this.config.onUpdate?.(config);
@@ -293,47 +302,21 @@ export class FlagForgeClient {
             }
           } else if (event.type === "config_delta" && event.data) {
             try {
-              const raw = JSON.parse(event.data) as RawConfigDelta;
-              if (typeof raw.seq === "number") {
+              const raw = JSON.parse(event.data) as ConfigDelta;
+              if (typeof raw.seq === "number" && raw.seq > 0) {
                 if (this.hasAppliedSeq(raw.seq)) {
                   continue;
                 }
+              }
+
+              const applied = await this.applyDeltaOrReload(raw);
+              if (
+                applied &&
+                typeof raw.seq === "number" &&
+                raw.seq > 0
+              ) {
                 this.trackAppliedSeq(raw.seq);
               }
-              if (!this.currentConfig) {
-                continue;
-              }
-              if (raw.from_version !== this.currentConfig.version) {
-                // Version mismatch, force a full refresh for consistency.
-                const full = await this.fetchFlagsConfig();
-                this.currentConfig = full;
-                this.evaluator.update(full);
-                this.config.onUpdate?.(full);
-                continue;
-              }
-
-              const changedTransformed = transformFlagsConfig({
-                flags: raw.changed_flags ?? {},
-                segments: {},
-                version: raw.to_version,
-              });
-              const nextFlags: Record<string, FlagConfig> = {
-                ...this.currentConfig.flags,
-                ...changedTransformed.flags,
-              };
-              for (const deletedKey of raw.deleted_flags ?? []) {
-                delete nextFlags[deletedKey];
-              }
-
-              const nextConfig: FlagsConfig = {
-                flags: nextFlags,
-                // Segment deltas are not streamed yet; keep existing map.
-                segments: this.currentConfig.segments,
-                version: raw.to_version,
-              };
-              this.currentConfig = nextConfig;
-              this.evaluator.update(nextConfig);
-              this.config.onUpdate?.(nextConfig);
             } catch (e) {
               this.config.onError?.(
                 new Error(`Failed to apply config delta: ${e}`),
@@ -372,7 +355,7 @@ export class FlagForgeClient {
   // ============================================================
 
   private async fetchFlagsConfig(): Promise<FlagsConfig> {
-    const res = await fetch(`${this.config.baseUrl}/api/v1/flags-config`, {
+    const res = await this.sdkFetch(`${this.config.baseUrl}/api/v1/flags-config`, {
       headers: { Authorization: this.apiKey },
     });
 
@@ -384,6 +367,30 @@ export class FlagForgeClient {
     return transformFlagsConfig(raw);
   }
 
+  private async applyDeltaOrReload(delta: ConfigDelta): Promise<boolean> {
+    const result = applyConfigDelta(this.currentConfig, delta);
+    if (result.ok) {
+      this.currentConfig = result.config;
+      this.evaluator.update(result.config);
+      this.config.onUpdate?.(result.config);
+      return true;
+    }
+
+    const full = await this.fetchFlagsConfig();
+    this.resetAppliedSeqs();
+    this.currentConfig = full;
+    this.evaluator.update(full);
+    this.config.onUpdate?.(full);
+    return true;
+  }
+
+  private sdkFetch(url: string, init: RequestInit): Promise<Response> {
+    return fetchWithRetry(url, init, {
+      maxRetries: this.config.rateLimitMaxRetries,
+      onRateLimited: this.config.onRateLimited,
+    });
+  }
+
   private async remoteEvaluate(
     flagKey: string,
     context?: EvaluationContext,
@@ -391,7 +398,7 @@ export class FlagForgeClient {
   ): Promise<EvaluationResult> {
     try {
       const ctx = context ?? this.config.context ?? {};
-      const res = await fetch(`${this.config.baseUrl}/api/v1/evaluate`, {
+      const res = await this.sdkFetch(`${this.config.baseUrl}/api/v1/evaluate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -432,7 +439,7 @@ export class FlagForgeClient {
   ): Promise<EvaluationResult[]> {
     try {
       const ctx = context ?? this.config.context ?? {};
-      const res = await fetch(
+      const res = await this.sdkFetch(
         `${this.config.baseUrl}/api/v1/evaluate/batch`,
         {
           method: "POST",
@@ -520,13 +527,18 @@ export class FlagForgeClient {
         },
         body: JSON.stringify({
           sdk_instance_id: this.sdkInstanceId,
-          sdk_version: this.config.sdkVersion ?? "unknown",
+          sdk_version: this.config.sdkVersion ?? SDK_VERSION,
           runtime: this.config.runtime ?? detectRuntime(),
         }),
       });
     } catch {
       // Heartbeat is best-effort and should never affect evaluation behavior.
     }
+  }
+
+  private resetAppliedSeqs(): void {
+    this.appliedSeqs.clear();
+    this.appliedSeqQueue.length = 0;
   }
 
   private hasAppliedSeq(seq: number): boolean {
@@ -555,14 +567,6 @@ interface SSEEvent {
   data: string;
 }
 
-interface RawConfigDelta {
-  seq?: number;
-  from_version: number;
-  to_version: number;
-  changed_flags: Record<string, unknown>;
-  deleted_flags: string[];
-}
-
 function makeSdkInstanceId(): string {
   try {
     const c = globalThis.crypto;
@@ -577,9 +581,9 @@ function makeSdkInstanceId(): string {
 
 function detectRuntime(): string {
   if (typeof window !== "undefined") return "browser";
-  if (typeof process !== "undefined" && process.release?.name) {
-    return process.release.name;
-  }
+  const proc = (globalThis as { process?: { release?: { name?: string } } })
+    .process;
+  if (proc?.release?.name) return proc.release.name;
   return "unknown";
 }
 

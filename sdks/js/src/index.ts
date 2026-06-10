@@ -1,4 +1,6 @@
 export { FlagForgeClient, type FlagForgeConfig, parseSSE } from "./client";
+export { applyConfigDelta, type ConfigDelta } from "./delta";
+export { SDK_VERSION } from "./version";
 export { Evaluator } from "./evaluator";
 export { murmurhash3, bucket } from "./hasher";
 export { transformFlagsConfig, transformEvaluationResult } from "./transform";

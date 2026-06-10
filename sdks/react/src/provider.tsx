@@ -30,9 +30,15 @@ export function FlagForgeProvider({
     baseUrl,
     streaming,
     pollingInterval,
+    heartbeatIntervalMs,
+    sdkInstanceId,
+    runtime,
+    sdkVersion,
+    rateLimitMaxRetries,
     context: evalContext,
   } = config;
   const contextJson = evalContext ? JSON.stringify(evalContext) : "";
+  const onRateLimited = config.onRateLimited;
 
   const client = useMemo(() => {
     return new FlagForgeClient({
@@ -51,7 +57,20 @@ export function FlagForgeProvider({
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverKey, clientKey, baseUrl, streaming, pollingInterval, contextJson]);
+  }, [
+    serverKey,
+    clientKey,
+    baseUrl,
+    streaming,
+    pollingInterval,
+    heartbeatIntervalMs,
+    sdkInstanceId,
+    runtime,
+    sdkVersion,
+    rateLimitMaxRetries,
+    onRateLimited,
+    contextJson,
+  ]);
 
   useEffect(() => {
     setIsReady(false);

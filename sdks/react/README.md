@@ -109,6 +109,9 @@ Wraps your app and initializes the FlagForge client.
     baseUrl: "http://localhost:8080",
     streaming: false,               // client keys use remote evaluation
     pollingInterval: 30_000,
+    heartbeatIntervalMs: 30_000,    // optional — connection tracking
+    sdkInstanceId: "web-app-1",     // optional — stable instance id
+    runtime: "browser",             // optional — sent with heartbeat
     context: {                      // optional default evaluation context
       targetingKey: "user-123",
       attributes: { plan: "pro" },
@@ -233,6 +236,7 @@ createRoot(document.getElementById("root")!).render(
 | Hook throws “must be used within FlagForgeProvider” | Component is outside `<FlagForgeProvider>` |
 | Next.js error about hooks in Server Components | Add `"use client"` to the file |
 | Flag always returns default | Wrong flag key, API URL, or invalid SDK key |
+| HTTP 429 errors | Per-SDK-key rate limit — SDK retries automatically; reduce request volume |
 | Browser blocks requests | HTTPS site calling `http://` API (mixed content) |
 | Full config visible in network tab with `srv_` key | You used a server key in the browser — switch to `cli_` |
 

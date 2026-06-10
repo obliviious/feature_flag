@@ -73,6 +73,11 @@ interface FlagForgeConfig {
   streaming?: boolean;          // SSE updates (default: true for server keys)
   pollingInterval?: number;     // fallback poll interval in ms (default: 30000)
   heartbeatIntervalMs?: number; // SDK heartbeat (default: 30000)
+  sdkInstanceId?: string;       // stable instance id for connection tracking
+  runtime?: string;             // e.g. node, browser, edge
+  sdkVersion?: string;          // sent with heartbeat (default: package version)
+  rateLimitMaxRetries?: number; // retries on HTTP 429 (default: 3)
+  onRateLimited?: (info: { retryAfterMs: number; attempt: number }) => void;
   onReady?: () => void;
   onError?: (error: Error) => void;
   onUpdate?: (config: FlagsConfig) => void;
@@ -124,17 +129,43 @@ interface EvaluationResult {
 
 With `streaming: true`, the client subscribes to SSE config changes and re-evaluates automatically when flags change.
 
+The server sends **delta updates** (`config_delta` events) when only a few flags changed, and falls back to a full `config` event when needed (e.g. subscriber lag or version mismatch). The SDK:
+
+- Validates `from_version` against the local snapshot; fetches full config on mismatch
+- Deduplicates events using monotonic `seq` numbers
+- Resets sequence tracking after a full config reload
+
 ```typescript
 const client = new FlagForgeClient({
   serverKey: "srv_...",
   baseUrl: "http://localhost:8080",
   streaming: true,
+  sdkInstanceId: "my-service-pod-1", // optional — for heartbeat visibility
+  runtime: "node",
   onUpdate: (config) => {
     console.log("Config version:", config.version);
   },
 });
 
 await client.init();
+```
+
+### Heartbeat (connection visibility)
+
+All SDK keys send periodic heartbeats to `POST /api/v1/heartbeat` so the control plane can show active SDK instances. Heartbeats are best-effort and never block evaluation.
+
+### Rate limiting
+
+Evaluation and config endpoints may return HTTP **429** when per-SDK-key limits are exceeded. The SDK retries with backoff (honoring `Retry-After` when present):
+
+```typescript
+const client = new FlagForgeClient({
+  serverKey: "srv_...",
+  rateLimitMaxRetries: 3,
+  onRateLimited: ({ retryAfterMs, attempt }) => {
+    console.warn(`Rate limited, retry ${attempt} in ${retryAfterMs}ms`);
+  },
+});
 ```
 
 ## Next.js
@@ -153,7 +184,7 @@ Never put `srv_...` keys in `NEXT_PUBLIC_*` variables.
 | `GET` | `/api/v1/flags-config` | SDK key |
 | `POST` | `/api/v1/evaluate` | SDK key |
 | `POST` | `/api/v1/evaluate/batch` | SDK key |
-| `GET` | `/api/v1/stream` | SDK key (server keys) |
+| `GET` | `/api/v1/stream` | SDK key (server keys) — `config` + `config_delta` SSE events |
 | `POST` | `/api/v1/heartbeat` | SDK key |
 
 ## Standalone evaluator
