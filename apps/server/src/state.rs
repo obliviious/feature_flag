@@ -6,7 +6,7 @@ use crate::auth::jwt::JwksCache;
 use crate::broadcaster::Broadcaster;
 use crate::config::Config;
 use crate::store::redis::CachedSdkAuth;
-use crate::store::{PostgresStore, RedisStore};
+use crate::store::{RedisStore, SqliteStore};
 use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
@@ -95,7 +95,7 @@ impl RedisCircuitBreaker {
 #[derive(Clone)]
 pub struct AppState {
     pub config: Config,
-    pub store: PostgresStore,
+    pub store: SqliteStore,
     pub redis: Option<RedisStore>,
     pub jwks: Arc<JwksCache>,
     pub broadcaster: Broadcaster,

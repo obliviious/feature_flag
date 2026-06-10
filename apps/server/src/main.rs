@@ -26,7 +26,7 @@ use crate::auth::jwt::JwksCache;
 use crate::broadcaster::{Broadcaster, ConfigChangeEvent};
 use crate::config::Config;
 use crate::state::{AppState, RedisCircuitBreaker};
-use crate::store::{PostgresStore, RedisStore};
+use crate::store::{RedisStore, SqliteStore};
 use tokio::sync::{Mutex, RwLock};
 
 #[tokio::main]
@@ -45,8 +45,8 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting FlagForge server v{}", env!("CARGO_PKG_VERSION"));
 
-    // Connect to PostgreSQL
-    let store = PostgresStore::new(&config.database_url).await?;
+    // Connect to SQLite
+    let store = SqliteStore::new(&config.database_url).await?;
     store.run_migrations().await?;
     tracing::info!("Database connected and migrations applied");
 

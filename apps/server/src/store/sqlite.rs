@@ -1,41 +1,55 @@
 use anyhow::Result;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::PgPool;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::SqlitePool;
+use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::audit::AuditContext;
 use super::models::*;
 use eval_core::types as eval;
 
-// Column lists with enum→TEXT casts for sqlx compatibility
-const FLAG_COLS: &str = "id, project_id, key, name, description, flag_type::TEXT AS flag_type, tags, archived, created_at, updated_at";
-const SEGMENT_COLS: &str = "id, project_id, key, name, description, match_type::TEXT AS match_type, created_at, updated_at";
-const CONSTRAINT_COLS: &str = "id, segment_id, attribute, operator::TEXT AS operator, values, sort_order, created_at";
-const SDK_KEY_COLS: &str = "id, environment_id, name, key_type::TEXT AS key_type, key_hash, key_prefix, last_used_at, created_at, revoked_at";
+const FLAG_COLS: &str =
+    "id, project_id, key, name, description, flag_type, tags, archived, created_at, updated_at";
+const SEGMENT_COLS: &str =
+    "id, project_id, key, name, description, match_type, created_at, updated_at";
+const CONSTRAINT_COLS: &str =
+    "id, segment_id, attribute, operator, values, sort_order, created_at";
+const SDK_KEY_COLS: &str =
+    "id, environment_id, name, key_type, key_hash, key_prefix, last_used_at, created_at, revoked_at";
 
-/// PostgreSQL store for all FlagForge data.
+/// SQLite store for all FlagForge data.
 #[derive(Clone)]
-pub struct PostgresStore {
-    pool: PgPool,
+pub struct SqliteStore {
+    pool: SqlitePool,
 }
 
-impl PostgresStore {
+impl SqliteStore {
     pub async fn new(database_url: &str) -> Result<Self> {
-        let pool = PgPoolOptions::new()
-            .max_connections(20)
-            .connect(database_url)
+        let connect_options = SqliteConnectOptions::from_str(database_url)?
+            .create_if_missing(true)
+            .foreign_keys(true);
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(5)
+            .after_connect(|conn, _meta| {
+                Box::pin(async move {
+                    sqlx::query("PRAGMA journal_mode = WAL")
+                        .execute(&mut *conn)
+                        .await?;
+                    Ok(())
+                })
+            })
+            .connect_with(connect_options)
             .await?;
 
         Ok(Self { pool })
     }
 
-    pub fn pool(&self) -> &PgPool {
+    pub fn pool(&self) -> &SqlitePool {
         &self.pool
     }
 
     pub async fn run_migrations(&self) -> Result<()> {
-        // If migrations fail due to checksum mismatch (e.g. manually applied),
-        // fix the checksum in _sqlx_migrations and retry.
         let migrator = sqlx::migrate!("./migrations");
         match migrator.run(&self.pool).await {
             Ok(()) => Ok(()),
@@ -43,12 +57,11 @@ impl PostgresStore {
                 tracing::warn!(
                     "Migration {version} checksum mismatch — updating stored checksum"
                 );
-                // Find the migration with this version and update its checksum
                 for m in migrator.iter() {
                     if m.version == version {
                         let checksum_vec = Vec::from(m.checksum.as_ref());
                         sqlx::query(
-                            "UPDATE _sqlx_migrations SET checksum = $1 WHERE version = $2",
+                            "UPDATE _sqlx_migrations SET checksum = ? WHERE version = ?",
                         )
                         .bind(&checksum_vec)
                         .bind(version)
@@ -57,7 +70,6 @@ impl PostgresStore {
                         break;
                     }
                 }
-                // Retry after fixing checksum
                 migrator.run(&self.pool).await?;
                 Ok(())
             }
@@ -65,13 +77,12 @@ impl PostgresStore {
         }
     }
 
-    // ============================================================
-    // Organizations
-    // ============================================================
     pub async fn create_organization(&self, name: &str, slug: &str) -> Result<OrganizationRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, OrganizationRow>(
-            "INSERT INTO organizations (name, slug) VALUES ($1, $2) RETURNING *",
+            "INSERT INTO organizations (id, name, slug) VALUES (?, ?, ?) RETURNING *",
         )
+        .bind(id)
         .bind(name)
         .bind(slug)
         .fetch_one(&self.pool)
@@ -79,9 +90,6 @@ impl PostgresStore {
         Ok(row)
     }
 
-    // ============================================================
-    // Projects
-    // ============================================================
     pub async fn create_project(
         &self,
         org_id: Uuid,
@@ -89,9 +97,11 @@ impl PostgresStore {
         slug: &str,
         description: Option<&str>,
     ) -> Result<ProjectRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, ProjectRow>(
-            "INSERT INTO projects (organization_id, name, slug, description) VALUES ($1, $2, $3, $4) RETURNING *",
+            "INSERT INTO projects (id, organization_id, name, slug, description) VALUES (?, ?, ?, ?, ?) RETURNING *",
         )
+        .bind(id)
         .bind(org_id)
         .bind(name)
         .bind(slug)
@@ -102,17 +112,13 @@ impl PostgresStore {
     }
 
     pub async fn get_project(&self, project_id: Uuid) -> Result<Option<ProjectRow>> {
-        let row =
-            sqlx::query_as::<_, ProjectRow>("SELECT * FROM projects WHERE id = $1")
-                .bind(project_id)
-                .fetch_optional(&self.pool)
-                .await?;
+        let row = sqlx::query_as::<_, ProjectRow>("SELECT * FROM projects WHERE id = ?")
+            .bind(project_id)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(row)
     }
 
-    // ============================================================
-    // Environments
-    // ============================================================
     pub async fn create_environment(
         &self,
         project_id: Uuid,
@@ -120,9 +126,11 @@ impl PostgresStore {
         slug: &str,
         color: Option<&str>,
     ) -> Result<EnvironmentRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, EnvironmentRow>(
-            "INSERT INTO environments (project_id, name, slug, color) VALUES ($1, $2, $3, $4) RETURNING *",
+            "INSERT INTO environments (id, project_id, name, slug, color) VALUES (?, ?, ?, ?, ?) RETURNING *",
         )
+        .bind(id)
         .bind(project_id)
         .bind(name)
         .bind(slug)
@@ -130,8 +138,7 @@ impl PostgresStore {
         .fetch_one(&self.pool)
         .await?;
 
-        // Initialize config version
-        sqlx::query("INSERT INTO config_versions (environment_id) VALUES ($1) ON CONFLICT DO NOTHING")
+        sqlx::query("INSERT OR IGNORE INTO config_versions (environment_id) VALUES (?)")
             .bind(row.id)
             .execute(&self.pool)
             .await?;
@@ -141,7 +148,7 @@ impl PostgresStore {
 
     pub async fn list_environments(&self, project_id: Uuid) -> Result<Vec<EnvironmentRow>> {
         let rows = sqlx::query_as::<_, EnvironmentRow>(
-            "SELECT * FROM environments WHERE project_id = $1 ORDER BY sort_order",
+            "SELECT * FROM environments WHERE project_id = ? ORDER BY sort_order",
         )
         .bind(project_id)
         .fetch_all(&self.pool)
@@ -149,9 +156,6 @@ impl PostgresStore {
         Ok(rows)
     }
 
-    // ============================================================
-    // Flags
-    // ============================================================
     pub async fn create_flag(
         &self,
         project_id: Uuid,
@@ -161,17 +165,21 @@ impl PostgresStore {
         flag_type: &str,
         tags: &[String],
     ) -> Result<FlagRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, FlagRow>(
-            &format!("INSERT INTO flags (project_id, key, name, description, flag_type, tags)
-             VALUES ($1, $2, $3, $4, $5::flag_type, $6)
-             RETURNING {FLAG_COLS}"),
+            &format!(
+                "INSERT INTO flags (id, project_id, key, name, description, flag_type, tags)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
+             RETURNING {FLAG_COLS}"
+            ),
         )
+        .bind(id)
         .bind(project_id)
         .bind(key)
         .bind(name)
         .bind(description)
         .bind(flag_type)
-        .bind(tags)
+        .bind(sqlx::types::Json(tags))
         .fetch_one(&self.pool)
         .await?;
         Ok(row)
@@ -183,7 +191,7 @@ impl PostgresStore {
         key: &str,
     ) -> Result<Option<FlagRow>> {
         let row = sqlx::query_as::<_, FlagRow>(
-            &format!("SELECT {FLAG_COLS} FROM flags WHERE project_id = $1 AND key = $2"),
+            &format!("SELECT {FLAG_COLS} FROM flags WHERE project_id = ? AND key = ?"),
         )
         .bind(project_id)
         .bind(key)
@@ -194,7 +202,9 @@ impl PostgresStore {
 
     pub async fn list_flags(&self, project_id: Uuid) -> Result<Vec<FlagRow>> {
         let rows = sqlx::query_as::<_, FlagRow>(
-            &format!("SELECT {FLAG_COLS} FROM flags WHERE project_id = $1 AND archived = FALSE ORDER BY created_at DESC"),
+            &format!(
+                "SELECT {FLAG_COLS} FROM flags WHERE project_id = ? AND archived = 0 ORDER BY created_at DESC"
+            ),
         )
         .bind(project_id)
         .fetch_all(&self.pool)
@@ -210,36 +220,36 @@ impl PostgresStore {
         tags: Option<&[String]>,
         archived: Option<bool>,
     ) -> Result<FlagRow> {
+        let tags_json = tags.map(sqlx::types::Json);
         let row = sqlx::query_as::<_, FlagRow>(
-            &format!("UPDATE flags SET
-                name = COALESCE($2, name),
-                description = COALESCE($3, description),
-                tags = COALESCE($4, tags),
-                archived = COALESCE($5, archived)
-             WHERE id = $1
-             RETURNING {FLAG_COLS}"),
+            &format!(
+                "UPDATE flags SET
+                name = COALESCE(?, name),
+                description = COALESCE(?, description),
+                tags = COALESCE(?, tags),
+                archived = COALESCE(?, archived)
+             WHERE id = ?
+             RETURNING {FLAG_COLS}"
+            ),
         )
-        .bind(flag_id)
         .bind(name)
         .bind(description)
-        .bind(tags)
+        .bind(tags_json)
         .bind(archived)
+        .bind(flag_id)
         .fetch_one(&self.pool)
         .await?;
         Ok(row)
     }
 
     pub async fn delete_flag(&self, flag_id: Uuid) -> Result<()> {
-        sqlx::query("DELETE FROM flags WHERE id = $1")
+        sqlx::query("DELETE FROM flags WHERE id = ?")
             .bind(flag_id)
             .execute(&self.pool)
             .await?;
         Ok(())
     }
 
-    // ============================================================
-    // Flag Variants
-    // ============================================================
     pub async fn create_flag_variant(
         &self,
         flag_id: Uuid,
@@ -248,10 +258,12 @@ impl PostgresStore {
         description: Option<&str>,
         sort_order: i32,
     ) -> Result<FlagVariantRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, FlagVariantRow>(
-            "INSERT INTO flag_variants (flag_id, key, value, description, sort_order)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *",
+            "INSERT INTO flag_variants (id, flag_id, key, value, description, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
         )
+        .bind(id)
         .bind(flag_id)
         .bind(key)
         .bind(value)
@@ -264,7 +276,7 @@ impl PostgresStore {
 
     pub async fn get_flag_variants(&self, flag_id: Uuid) -> Result<Vec<FlagVariantRow>> {
         let rows = sqlx::query_as::<_, FlagVariantRow>(
-            "SELECT * FROM flag_variants WHERE flag_id = $1 ORDER BY sort_order",
+            "SELECT * FROM flag_variants WHERE flag_id = ? ORDER BY sort_order",
         )
         .bind(flag_id)
         .fetch_all(&self.pool)
@@ -272,9 +284,6 @@ impl PostgresStore {
         Ok(rows)
     }
 
-    // ============================================================
-    // Flag Environments
-    // ============================================================
     pub async fn create_flag_environment(
         &self,
         flag_id: Uuid,
@@ -282,10 +291,12 @@ impl PostgresStore {
         enabled: bool,
         default_variant_id: Option<Uuid>,
     ) -> Result<FlagEnvironmentRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, FlagEnvironmentRow>(
-            "INSERT INTO flag_environments (flag_id, environment_id, enabled, default_variant_id)
-             VALUES ($1, $2, $3, $4) RETURNING *",
+            "INSERT INTO flag_environments (id, flag_id, environment_id, enabled, default_variant_id)
+             VALUES (?, ?, ?, ?, ?) RETURNING *",
         )
+        .bind(id)
         .bind(flag_id)
         .bind(environment_id)
         .bind(enabled)
@@ -301,7 +312,7 @@ impl PostgresStore {
         environment_id: Uuid,
     ) -> Result<Option<FlagEnvironmentRow>> {
         let row = sqlx::query_as::<_, FlagEnvironmentRow>(
-            "SELECT * FROM flag_environments WHERE flag_id = $1 AND environment_id = $2",
+            "SELECT * FROM flag_environments WHERE flag_id = ? AND environment_id = ?",
         )
         .bind(flag_id)
         .bind(environment_id)
@@ -317,19 +328,16 @@ impl PostgresStore {
         enabled: bool,
     ) -> Result<FlagEnvironmentRow> {
         let row = sqlx::query_as::<_, FlagEnvironmentRow>(
-            "UPDATE flag_environments SET enabled = $3 WHERE flag_id = $1 AND environment_id = $2 RETURNING *",
+            "UPDATE flag_environments SET enabled = ? WHERE flag_id = ? AND environment_id = ? RETURNING *",
         )
+        .bind(enabled)
         .bind(flag_id)
         .bind(environment_id)
-        .bind(enabled)
         .fetch_one(&self.pool)
         .await?;
         Ok(row)
     }
 
-    // ============================================================
-    // Segments
-    // ============================================================
     pub async fn create_segment(
         &self,
         project_id: Uuid,
@@ -338,10 +346,14 @@ impl PostgresStore {
         description: Option<&str>,
         match_type: &str,
     ) -> Result<SegmentRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, SegmentRow>(
-            &format!("INSERT INTO segments (project_id, key, name, description, match_type)
-             VALUES ($1, $2, $3, $4, $5::match_type) RETURNING {SEGMENT_COLS}"),
+            &format!(
+                "INSERT INTO segments (id, project_id, key, name, description, match_type)
+             VALUES (?, ?, ?, ?, ?, ?) RETURNING {SEGMENT_COLS}"
+            ),
         )
+        .bind(id)
         .bind(project_id)
         .bind(key)
         .bind(name)
@@ -353,17 +365,18 @@ impl PostgresStore {
     }
 
     pub async fn get_segment(&self, segment_id: Uuid) -> Result<Option<SegmentRow>> {
-        let row = sqlx::query_as::<_, SegmentRow>(
-            &format!("SELECT {SEGMENT_COLS} FROM segments WHERE id = $1"))
-            .bind(segment_id)
-            .fetch_optional(&self.pool)
-            .await?;
+        let row = sqlx::query_as::<_, SegmentRow>(&format!(
+            "SELECT {SEGMENT_COLS} FROM segments WHERE id = ?"
+        ))
+        .bind(segment_id)
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(row)
     }
 
     pub async fn list_segments(&self, project_id: Uuid) -> Result<Vec<SegmentRow>> {
         let rows = sqlx::query_as::<_, SegmentRow>(
-            &format!("SELECT {SEGMENT_COLS} FROM segments WHERE project_id = $1 ORDER BY name"),
+            &format!("SELECT {SEGMENT_COLS} FROM segments WHERE project_id = ? ORDER BY name"),
         )
         .bind(project_id)
         .fetch_all(&self.pool)
@@ -379,14 +392,18 @@ impl PostgresStore {
         values: &[String],
         sort_order: i32,
     ) -> Result<SegmentConstraintRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, SegmentConstraintRow>(
-            &format!("INSERT INTO segment_constraints (segment_id, attribute, operator, values, sort_order)
-             VALUES ($1, $2, $3::operator_type, $4, $5) RETURNING {CONSTRAINT_COLS}"),
+            &format!(
+                "INSERT INTO segment_constraints (id, segment_id, attribute, operator, values, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?) RETURNING {CONSTRAINT_COLS}"
+            ),
         )
+        .bind(id)
         .bind(segment_id)
         .bind(attribute)
         .bind(operator)
-        .bind(values)
+        .bind(sqlx::types::Json(values))
         .bind(sort_order)
         .fetch_one(&self.pool)
         .await?;
@@ -398,7 +415,9 @@ impl PostgresStore {
         segment_id: Uuid,
     ) -> Result<Vec<SegmentConstraintRow>> {
         let rows = sqlx::query_as::<_, SegmentConstraintRow>(
-            &format!("SELECT {CONSTRAINT_COLS} FROM segment_constraints WHERE segment_id = $1 ORDER BY sort_order"),
+            &format!(
+                "SELECT {CONSTRAINT_COLS} FROM segment_constraints WHERE segment_id = ? ORDER BY sort_order"
+            ),
         )
         .bind(segment_id)
         .fetch_all(&self.pool)
@@ -406,15 +425,12 @@ impl PostgresStore {
         Ok(rows)
     }
 
-    // ============================================================
-    // Targeting Rules
-    // ============================================================
     pub async fn get_targeting_rules(
         &self,
         flag_environment_id: Uuid,
     ) -> Result<Vec<TargetingRuleRow>> {
         let rows = sqlx::query_as::<_, TargetingRuleRow>(
-            "SELECT * FROM targeting_rules WHERE flag_environment_id = $1 ORDER BY rank",
+            "SELECT * FROM targeting_rules WHERE flag_environment_id = ? ORDER BY rank",
         )
         .bind(flag_environment_id)
         .fetch_all(&self.pool)
@@ -424,7 +440,7 @@ impl PostgresStore {
 
     pub async fn get_rule_segments(&self, rule_id: Uuid) -> Result<Vec<RuleSegmentRow>> {
         let rows = sqlx::query_as::<_, RuleSegmentRow>(
-            "SELECT * FROM rule_segments WHERE rule_id = $1",
+            "SELECT * FROM rule_segments WHERE rule_id = ?",
         )
         .bind(rule_id)
         .fetch_all(&self.pool)
@@ -434,7 +450,7 @@ impl PostgresStore {
 
     pub async fn get_rule_distributions(&self, rule_id: Uuid) -> Result<Vec<RuleDistributionRow>> {
         let rows = sqlx::query_as::<_, RuleDistributionRow>(
-            "SELECT * FROM rule_distributions WHERE rule_id = $1 ORDER BY sort_order",
+            "SELECT * FROM rule_distributions WHERE rule_id = ? ORDER BY sort_order",
         )
         .bind(rule_id)
         .fetch_all(&self.pool)
@@ -442,15 +458,12 @@ impl PostgresStore {
         Ok(rows)
     }
 
-    // ============================================================
-    // Overrides
-    // ============================================================
     pub async fn get_flag_overrides(
         &self,
         flag_environment_id: Uuid,
     ) -> Result<Vec<FlagOverrideRow>> {
         let rows = sqlx::query_as::<_, FlagOverrideRow>(
-            "SELECT * FROM flag_overrides WHERE flag_environment_id = $1",
+            "SELECT * FROM flag_overrides WHERE flag_environment_id = ?",
         )
         .bind(flag_environment_id)
         .fetch_all(&self.pool)
@@ -458,9 +471,6 @@ impl PostgresStore {
         Ok(rows)
     }
 
-    // ============================================================
-    // SDK Keys
-    // ============================================================
     pub async fn create_sdk_key(
         &self,
         environment_id: Uuid,
@@ -469,10 +479,14 @@ impl PostgresStore {
         key_hash: &str,
         key_prefix: &str,
     ) -> Result<SdkKeyRow> {
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, SdkKeyRow>(
-            &format!("INSERT INTO sdk_keys (environment_id, name, key_type, key_hash, key_prefix)
-             VALUES ($1, $2, $3::sdk_key_type, $4, $5) RETURNING {SDK_KEY_COLS}"),
+            &format!(
+                "INSERT INTO sdk_keys (id, environment_id, name, key_type, key_hash, key_prefix)
+             VALUES (?, ?, ?, ?, ?, ?) RETURNING {SDK_KEY_COLS}"
+            ),
         )
+        .bind(id)
         .bind(environment_id)
         .bind(name)
         .bind(key_type)
@@ -484,7 +498,7 @@ impl PostgresStore {
     }
 
     pub async fn update_sdk_key_last_used(&self, key_id: Uuid) -> Result<()> {
-        sqlx::query("UPDATE sdk_keys SET last_used_at = NOW() WHERE id = $1")
+        sqlx::query("UPDATE sdk_keys SET last_used_at = datetime('now') WHERE id = ?")
             .bind(key_id)
             .execute(&self.pool)
             .await?;
@@ -496,11 +510,13 @@ impl PostgresStore {
         project_id: Uuid,
     ) -> Result<Vec<SdkKeyRow>> {
         let rows = sqlx::query_as::<_, SdkKeyRow>(
-            &format!("SELECT sk.id, sk.environment_id, sk.name, sk.key_type::TEXT AS key_type, sk.key_hash, sk.key_prefix, sk.last_used_at, sk.created_at, sk.revoked_at
+            &format!(
+                "SELECT sk.id, sk.environment_id, sk.name, sk.key_type, sk.key_hash, sk.key_prefix, sk.last_used_at, sk.created_at, sk.revoked_at
              FROM sdk_keys sk
              JOIN environments e ON sk.environment_id = e.id
-             WHERE e.project_id = $1
-             ORDER BY sk.created_at DESC"),
+             WHERE e.project_id = ?
+             ORDER BY sk.created_at DESC"
+            ),
         )
         .bind(project_id)
         .fetch_all(&self.pool)
@@ -510,7 +526,9 @@ impl PostgresStore {
 
     pub async fn revoke_sdk_key(&self, key_id: Uuid) -> Result<SdkKeyRow> {
         let row = sqlx::query_as::<_, SdkKeyRow>(
-            &format!("UPDATE sdk_keys SET revoked_at = NOW() WHERE id = $1 RETURNING {SDK_KEY_COLS}"),
+            &format!(
+                "UPDATE sdk_keys SET revoked_at = datetime('now') WHERE id = ? RETURNING {SDK_KEY_COLS}"
+            ),
         )
         .bind(key_id)
         .fetch_one(&self.pool)
@@ -532,7 +550,7 @@ impl PostgresStore {
         flag_id: Uuid,
     ) -> Result<Vec<FlagEnvironmentRow>> {
         let rows = sqlx::query_as::<_, FlagEnvironmentRow>(
-            "SELECT * FROM flag_environments WHERE flag_id = $1",
+            "SELECT * FROM flag_environments WHERE flag_id = ?",
         )
         .bind(flag_id)
         .fetch_all(&self.pool)
@@ -540,9 +558,6 @@ impl PostgresStore {
         Ok(rows)
     }
 
-    // ============================================================
-    // Config Builder — build eval-core FlagsConfig from DB
-    // ============================================================
     pub async fn build_flags_config(
         &self,
         project_id: Uuid,
@@ -554,7 +569,6 @@ impl PostgresStore {
         let mut flag_configs = std::collections::HashMap::new();
         let mut segment_map = std::collections::HashMap::new();
 
-        // Build segment map
         for seg in &all_segments {
             let constraints = self.get_segment_constraints(seg.id).await?;
             segment_map.insert(
@@ -579,7 +593,6 @@ impl PostgresStore {
             );
         }
 
-        // Build flag configs
         for flag in &flags {
             let variants = self.get_flag_variants(flag.id).await?;
             let flag_env = self.get_flag_environment(flag.id, environment_id).await?;
@@ -655,9 +668,8 @@ impl PostgresStore {
             );
         }
 
-        // Get config version
         let version_row = sqlx::query_as::<_, ConfigVersionRow>(
-            "SELECT * FROM config_versions WHERE environment_id = $1",
+            "SELECT * FROM config_versions WHERE environment_id = ?",
         )
         .bind(environment_id)
         .fetch_optional(&self.pool)
@@ -670,11 +682,10 @@ impl PostgresStore {
         })
     }
 
-    /// Increment config version for cache invalidation.
     pub async fn increment_config_version(&self, environment_id: Uuid) -> Result<i64> {
         let row = sqlx::query_as::<_, ConfigVersionRow>(
-            "UPDATE config_versions SET version = version + 1, updated_at = NOW()
-             WHERE environment_id = $1 RETURNING *",
+            "UPDATE config_versions SET version = version + 1, updated_at = datetime('now')
+             WHERE environment_id = ? RETURNING *",
         )
         .bind(environment_id)
         .fetch_one(&self.pool)
@@ -682,9 +693,6 @@ impl PostgresStore {
         Ok(row.version)
     }
 
-    // ============================================================
-    // Audit Log
-    // ============================================================
     pub async fn create_audit_log(
         &self,
         project_id: Uuid,
@@ -732,20 +740,22 @@ impl PostgresStore {
         actor_email_override: Option<String>,
     ) -> Result<AuditLogRow> {
         let severity = severity_override.unwrap_or("info");
+        let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, AuditLogRow>(
             "INSERT INTO audit_log (
-                project_id, actor_id, actor_email, actor_type, actor_name, action,
+                id, project_id, actor_id, actor_email, actor_type, actor_name, action,
                 entity_type, entity_id, before_state, after_state, diff, metadata,
                 severity, environment_id, environment_name, ip_address, user_agent, request_id
              ) VALUES (
-                $1, $2, $3, $4, $5, $6,
-                $7, $8, $9, $10, $11, $12,
-                $13, $14, $15, $16::INET, $17, $18
+                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?
              ) RETURNING
                 id, project_id, actor_id, actor_email, actor_type, actor_name, action, entity_type, entity_id,
                 before_state, after_state, diff, metadata, severity, environment_id, environment_name,
-                ip_address::TEXT AS ip_address, user_agent, request_id, created_at",
+                ip_address, user_agent, request_id, created_at",
         )
+        .bind(id)
         .bind(project_id)
         .bind(ctx.actor_id)
         .bind(actor_email_override.or_else(|| ctx.actor_email.clone()))
@@ -786,26 +796,33 @@ impl PostgresStore {
             "SELECT
                 id, project_id, actor_id, actor_email, actor_type, actor_name, action, entity_type, entity_id,
                 before_state, after_state, diff, metadata, severity, environment_id, environment_name,
-                ip_address::TEXT AS ip_address, user_agent, request_id, created_at
+                ip_address, user_agent, request_id, created_at
              FROM audit_log
-             WHERE project_id = $1
-               AND ($2::TEXT IS NULL OR actor_email = $2)
-               AND ($3::TEXT IS NULL OR action = $3)
-               AND ($4::TEXT IS NULL OR entity_type = $4)
-               AND ($5::UUID IS NULL OR entity_id = $5)
-               AND ($6::TEXT IS NULL OR severity = $6)
-               AND ($7::UUID IS NULL OR environment_id = $7)
-               AND ($8::BIGINT IS NULL OR created_at >= NOW() - ($8::TEXT || ' hours')::INTERVAL)
+             WHERE project_id = ?
+               AND (? IS NULL OR actor_email = ?)
+               AND (? IS NULL OR action = ?)
+               AND (? IS NULL OR entity_type = ?)
+               AND (? IS NULL OR entity_id = ?)
+               AND (? IS NULL OR severity = ?)
+               AND (? IS NULL OR environment_id = ?)
+               AND (? IS NULL OR created_at >= datetime('now', '-' || ? || ' hours'))
              ORDER BY created_at DESC
-             LIMIT $9 OFFSET $10",
+             LIMIT ? OFFSET ?",
         )
         .bind(project_id)
         .bind(actor_email)
+        .bind(actor_email)
+        .bind(action)
         .bind(action)
         .bind(entity_type)
+        .bind(entity_type)
+        .bind(entity_id)
         .bind(entity_id)
         .bind(severity)
+        .bind(severity)
         .bind(environment_id)
+        .bind(environment_id)
+        .bind(since_hours)
         .bind(since_hours)
         .bind(limit)
         .bind(offset)

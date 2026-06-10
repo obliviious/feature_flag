@@ -15,7 +15,7 @@ Open-source feature flag platform with a Rust API server, Next.js dashboard, and
 │  sdks/js        │ ◄─────────────────────────────┤
 │  sdks/react     │                               │
 └─────────────────┘                      ┌────────┴─────────┐
-                                         │  PostgreSQL       │
+                                         │  SQLite           │
                                          │  Redis (optional) │
                                          └───────────────────┘
 ```
@@ -31,7 +31,7 @@ Open-source feature flag platform with a Rust API server, Next.js dashboard, and
 
 ### Request flows
 
-**Dashboard (management)** — User signs in via Clerk → browser calls `/api/proxy/...` on the Next app → proxy forwards to the Rust server with a Clerk JWT → CRUD on flags, segments, environments, SDK keys; changes are persisted to Postgres, cached in Redis, and broadcast over SSE.
+**Dashboard (management)** — User signs in via Clerk → browser calls `/api/proxy/...` on the Next app → proxy forwards to the Rust server with a Clerk JWT → CRUD on flags, segments, environments, SDK keys; changes are persisted to SQLite, cached in Redis, and broadcast over SSE.
 
 **Application (evaluation)** — Your app uses an SDK key (`srv_...` or `cli_...`) → server validates the key (Redis + in-memory cache, DB fallback) → `/evaluate`, `/flags-config`, `/stream`, or `/heartbeat`. Server-side SDKs download config and evaluate locally; client-side SDKs call the server so targeting rules never leave the backend.
 
@@ -50,13 +50,14 @@ Open-source feature flag platform with a Rust API server, Next.js dashboard, and
 
 - **Rust** (stable toolchain)
 - **Node.js** 18+ and **pnpm** 9+
-- **PostgreSQL** 16+
-- **Redis** 7+ (recommended; server degrades gracefully without it)
+- **Redis** 7+ (optional; server degrades gracefully without it)
 - **Clerk** account for dashboard auth
+
+No separate database server is required — the API uses **SQLite** (a local file, created automatically on first run).
 
 ## Quick start
 
-### Option A — Docker Compose (backend + Postgres + Redis)
+### Option A — Docker Compose (backend + Redis)
 
 From the repo root:
 
@@ -65,7 +66,7 @@ export CLERK_DOMAIN=your-app.clerk.accounts.dev
 docker compose -f deploy/docker-compose.yml up --build
 ```
 
-The API listens on **http://localhost:8080**. Verify:
+The API listens on **http://localhost:8080**. SQLite data is stored in a Docker volume (`sqlite_data`). Verify:
 
 ```bash
 curl http://localhost:8080/health
@@ -73,10 +74,10 @@ curl http://localhost:8080/health
 
 ### Option B — Run services locally
 
-**1. Start Postgres and Redis** (or use the compose file for infra only):
+**1. (Optional) Start Redis** for caching, pub/sub, and rate limiting:
 
 ```bash
-docker compose -f deploy/docker-compose.yml up postgres redis -d
+docker compose -f deploy/docker-compose.yml up redis -d
 ```
 
 **2. Configure the server**
@@ -91,7 +92,7 @@ Required variables:
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | Postgres connection string |
+| `DATABASE_URL` | SQLite connection string (default: `sqlite://flagforge.db?mode=rwc`) |
 | `CLERK_DOMAIN` | Clerk JWT issuer domain (e.g. `your-app.clerk.accounts.dev`) |
 
 Optional variables:

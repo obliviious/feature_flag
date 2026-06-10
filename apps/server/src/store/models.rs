@@ -47,6 +47,7 @@ pub struct FlagRow {
     pub name: String,
     pub description: Option<String>,
     pub flag_type: String,
+    #[sqlx(json)]
     pub tags: Vec<String>,
     pub archived: bool,
     pub created_at: DateTime<Utc>,
@@ -93,6 +94,7 @@ pub struct SegmentConstraintRow {
     pub segment_id: Uuid,
     pub attribute: String,
     pub operator: String,
+    #[sqlx(json)]
     pub values: Vec<String>,
     pub sort_order: i32,
     pub created_at: DateTime<Utc>,

@@ -99,10 +99,10 @@ async fn resolve_sdk_auth(state: &AppState, auth_header: &str) -> Result<AuthInf
 
     // Cache miss: validate from DB and warm cache.
     let sdk_key = sqlx::query_as::<_, SdkKeyAuthRow>(
-        "SELECT sk.id, sk.environment_id, e.project_id, sk.key_type::TEXT AS key_type
+        "SELECT sk.id, sk.environment_id, e.project_id, sk.key_type
          FROM sdk_keys sk
          JOIN environments e ON e.id = sk.environment_id
-         WHERE sk.key_hash = $1 AND sk.revoked_at IS NULL",
+         WHERE sk.key_hash = ? AND sk.revoked_at IS NULL",
     )
     .bind(&key_hash)
     .fetch_optional(state.store.pool())

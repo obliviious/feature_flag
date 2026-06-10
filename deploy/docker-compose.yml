@@ -8,26 +8,14 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
-        condition: service_started
       redis:
         condition: service_started
     environment:
-      DATABASE_URL: postgres://flagforge:flagforge@postgres:5432/flagforge
+      DATABASE_URL: sqlite:///data/flagforge.db?mode=rwc
       REDIS_URL: redis://redis:6379
       CLERK_DOMAIN: ${CLERK_DOMAIN:?CLERK_DOMAIN must be set}
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:16-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: flagforge
-      POSTGRES_PASSWORD: flagforge
-      POSTGRES_DB: flagforge
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - sqlite_data:/data
     restart: unless-stopped
 
   redis:
@@ -37,4 +25,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  pgdata:
+  sqlite_data:

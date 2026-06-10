@@ -23,7 +23,7 @@ impl Config {
                 .parse()
                 .expect("PORT must be a number"),
             database_url: env::var("DATABASE_URL")
-                .expect("DATABASE_URL must be set"),
+                .unwrap_or_else(|_| "sqlite://flagforge.db?mode=rwc".into()),
             redis_url: env::var("REDIS_URL")
                 .unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
             clerk_domain: env::var("CLERK_DOMAIN")

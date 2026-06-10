@@ -129,7 +129,7 @@ const docs: Record<string, { title: string; content: React.ReactNode }> = {
             <DiagramArrow />
             <DiagramBox label="Server" sub="Rust / Axum" accent />
             <DiagramArrow />
-            <DiagramBox label="PostgreSQL" sub="Primary Store" />
+            <DiagramBox label="SQLite" sub="Primary Store" />
           </div>
           <div className="flex justify-center my-2">
             <div className="w-px h-6 bg-border-lighter" />
@@ -200,8 +200,8 @@ cd flagforge`}
 docker compose up -d`}
         />
         <p>
-          This starts PostgreSQL, Redis, and the FlagForge server on port
-          8080.
+          This starts Redis and the FlagForge server on port
+          8080. SQLite data is stored in a Docker volume — no separate database container required.
         </p>
 
         <h3>4. Verify Health</h3>
@@ -261,7 +261,7 @@ console.log(result.enabled); // false (default)`}
       <>
         <p>
           FlagForge is designed for self-hosting. The server is a single Rust
-          binary with PostgreSQL and Redis as dependencies.
+          binary with SQLite (embedded) and optional Redis.
         </p>
 
         <h3>System Requirements</h3>
@@ -276,8 +276,8 @@ console.log(result.enabled); // false (default)`}
           <tbody>
             <tr><td>CPU</td><td>1 core</td><td>2+ cores</td></tr>
             <tr><td>RAM</td><td>256 MB</td><td>512 MB+</td></tr>
-            <tr><td>PostgreSQL</td><td>14+</td><td>16+</td></tr>
-            <tr><td>Redis</td><td>6+</td><td>7+</td></tr>
+            <tr><td>SQLite</td><td>3.35+</td><td>bundled</td></tr>
+            <tr><td>Redis</td><td>6+</td><td>7+ (optional)</td></tr>
           </tbody>
         </table>
 
@@ -291,7 +291,7 @@ console.log(result.enabled); // false (default)`}
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>DATABASE_URL</code></td><td>Yes</td><td>PostgreSQL connection string</td></tr>
+            <tr><td><code>DATABASE_URL</code></td><td>No</td><td>SQLite connection string (default: <code>sqlite://flagforge.db?mode=rwc</code>)</td></tr>
             <tr><td><code>REDIS_URL</code></td><td>No</td><td>Redis connection string (defaults to localhost:6379)</td></tr>
             <tr><td><code>CLERK_DOMAIN</code></td><td>Yes</td><td>Your Clerk domain for JWT verification</td></tr>
             <tr><td><code>HOST</code></td><td>No</td><td>Bind address (default: 0.0.0.0)</td></tr>
@@ -304,9 +304,10 @@ console.log(result.enabled); // false (default)`}
         <CodeBlock
           lang="bash"
           code={`docker run -d \\
-  -e DATABASE_URL=postgres://user:pass@db:5432/flagforge \\
+  -e DATABASE_URL=sqlite:///data/flagforge.db?mode=rwc \\
   -e REDIS_URL=redis://redis:6379 \\
   -e CLERK_DOMAIN=your-app.clerk.accounts.dev \\
+  -v flagforge-data:/data \\
   -p 8080:8080 \\
   ghcr.io/flagforge/flagforge:latest`}
         />
@@ -790,7 +791,7 @@ function Component() {
         <table>
           <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>DATABASE_URL</code></td><td>—</td><td>PostgreSQL connection string (required)</td></tr>
+            <tr><td><code>DATABASE_URL</code></td><td><code>sqlite://flagforge.db?mode=rwc</code></td><td>SQLite database file path</td></tr>
             <tr><td><code>REDIS_URL</code></td><td><code>redis://127.0.0.1:6379</code></td><td>Redis for cache + pub/sub</td></tr>
             <tr><td><code>CLERK_DOMAIN</code></td><td>—</td><td>Clerk domain for management JWT auth (required)</td></tr>
             <tr><td><code>HOST</code></td><td><code>0.0.0.0</code></td><td>Server bind address</td></tr>
