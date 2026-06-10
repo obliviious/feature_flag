@@ -6,19 +6,36 @@ import { useApiData } from "@/lib/use-api-data";
 import { LoadingState } from "@/components/dashboard/LoadingState";
 import { SetupPrompt } from "@/components/dashboard/SetupPrompt";
 
-const API_DISPLAY_URL = "Via /api/proxy → EC2 backend";
-
 export default function SettingsPage() {
   const { user, isLoaded } = useUser();
   const { project, api, loading: projectLoading } = useProject();
+
+  const { data: projectDetail, loading: projectDetailLoading } = useApiData(
+    () => (project ? api.getProject(project.id) : Promise.resolve(null)),
+    [project?.id]
+  );
 
   const { data: environments, loading: envsLoading } = useApiData(
     () => (project ? api.listEnvironments(project.id) : Promise.resolve([])),
     [project?.id]
   );
 
-  if (projectLoading || envsLoading) return <LoadingState label="Loading settings..." />;
+  const { data: health, loading: healthLoading } = useApiData(
+    () => api.getHealth(),
+    []
+  );
+
+  const { data: connections } = useApiData(
+    () => (project ? api.listSdkConnections(project.id, 60) : Promise.resolve(null)),
+    [project?.id]
+  );
+
+  if (projectLoading || envsLoading || projectDetailLoading) {
+    return <LoadingState label="Loading settings..." />;
+  }
   if (!project) return <SetupPrompt />;
+
+  const detail = projectDetail ?? project;
 
   return (
     <div className="p-6 md:p-8 relative z-10 space-y-8">
@@ -28,6 +45,24 @@ export default function SettingsPage() {
           Project configuration and account preferences
         </p>
       </div>
+
+      {/* Server health */}
+      <section className="border border-border">
+        <div className="px-5 py-3 border-b border-border bg-bg-card">
+          <span className="font-mono text-[0.6rem] text-text-primary uppercase tracking-wider">
+            Server Status
+          </span>
+        </div>
+        <div className="p-5 grid sm:grid-cols-3 gap-4">
+          <SettingsField
+            label="Status"
+            value={healthLoading ? "..." : health?.status ?? "unknown"}
+            highlight={health?.status === "healthy" ? "green" : health?.status === "degraded" ? "amber" : undefined}
+          />
+          <SettingsField label="Version" value={healthLoading ? "..." : health?.version ?? "—"} mono />
+          <SettingsField label="Database" value={healthLoading ? "..." : health?.database ?? "—"} mono />
+        </div>
+      </section>
 
       {/* Profile section */}
       <section className="border border-border">
@@ -53,9 +88,21 @@ export default function SettingsPage() {
           </span>
         </div>
         <div className="p-5 space-y-4">
-          <SettingsField label="Project Name" value={project?.name || "—"} />
-          <SettingsField label="Project Slug" value={project?.slug || "—"} mono />
-          <SettingsField label="Project ID" value={project?.id || "—"} mono />
+          <div className="grid sm:grid-cols-2 gap-4">
+            <SettingsField label="Project Name" value={detail.name} />
+            <SettingsField label="Project Slug" value={detail.slug} mono />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <SettingsField label="Project ID" value={detail.id} mono />
+            <SettingsField label="Organization ID" value={detail.organization_id} mono />
+          </div>
+          {detail.description && (
+            <SettingsField label="Description" value={detail.description} />
+          )}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <SettingsField label="Created" value={new Date(detail.created_at).toLocaleString()} mono />
+            <SettingsField label="Updated" value={new Date(detail.updated_at).toLocaleString()} mono />
+          </div>
           <div>
             <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">
               Environments
@@ -82,70 +129,83 @@ export default function SettingsPage() {
       <section className="border border-border">
         <div className="px-5 py-3 border-b border-border bg-bg-card">
           <span className="font-mono text-[0.6rem] text-text-primary uppercase tracking-wider">
-            API Configuration
+            API Endpoints
           </span>
         </div>
-        <div className="p-5 space-y-4">
-          <SettingsField label="Server URL" value={API_DISPLAY_URL} mono />
-          <SettingsField label="SSE Endpoint" value={`${API_DISPLAY_URL}/api/v1/stream`} mono />
+        <div className="p-5 space-y-3 font-mono text-[0.55rem] text-text-secondary">
+          <EndpointRow method="GET" path="/api/v1/flags-config" note="SDK config snapshot" />
+          <EndpointRow method="GET" path="/api/v1/stream" note="SSE config + delta updates" />
+          <EndpointRow method="POST" path="/api/v1/heartbeat" note="SDK connection tracking" />
+          <EndpointRow method="POST" path="/api/v1/evaluate" note="Remote flag evaluation" />
+          <EndpointRow method="GET" path="/api/v1/projects/{id}/sdk-connections" note="Active SDK instances" />
+          <EndpointRow method="GET" path="/api/v1/projects/{id}/audit-log" note="Audit trail with filters" />
         </div>
+        {connections && (
+          <div className="px-5 pb-5">
+            <SettingsField
+              label="SDK Tracking"
+              value={
+                connections.tracking_enabled
+                  ? `${connections.total_active_instances} active instance(s) in last 60s`
+                  : "Disabled (Redis unavailable)"
+              }
+            />
+          </div>
+        )}
       </section>
 
-      {/* Webhooks */}
+      {/* Not yet available */}
       <section className="border border-border">
-        <div className="px-5 py-3 border-b border-border bg-bg-card flex items-center justify-between">
-          <span className="font-mono text-[0.6rem] text-text-primary uppercase tracking-wider">
-            Webhooks
-          </span>
-          <button className="font-mono text-[0.5rem] text-accent-red uppercase tracking-wider hover:text-accent-red-hover transition-colors">
-            Add Webhook {">>>"}
-          </button>
-        </div>
-        <div className="p-5">
-          <div className="text-center py-8">
-            <p className="font-mono text-[0.55rem] text-text-muted uppercase tracking-wider mb-4">
-              No webhooks configured
-            </p>
-            <p className="font-mono text-[0.5rem] text-text-muted/50 max-w-sm mx-auto">
-              Webhooks notify external services when flags change. Useful for
-              CI/CD integrations and monitoring.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Danger zone */}
-      <section className="border border-accent-red/20">
-        <div className="px-5 py-3 border-b border-accent-red/20 bg-accent-red/[0.03]">
-          <span className="font-mono text-[0.6rem] text-accent-red uppercase tracking-wider">
-            Danger Zone
+        <div className="px-5 py-3 border-b border-border bg-bg-card">
+          <span className="font-mono text-[0.6rem] text-text-muted uppercase tracking-wider">
+            Not Yet Available
           </span>
         </div>
-        <div className="p-5 space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <div className="font-mono text-[0.65rem] text-text-primary mb-0.5">Delete Project</div>
-              <div className="font-mono text-[0.5rem] text-text-muted">
-                Permanently delete this project and all associated flags, environments, and SDK keys.
-              </div>
-            </div>
-            <button className="font-mono text-[0.6rem] uppercase tracking-wider px-4 py-2 border border-accent-red/30 text-accent-red hover:bg-accent-red hover:text-white transition-colors">
-              Delete Project
-            </button>
-          </div>
+        <div className="p-5 space-y-3 font-mono text-[0.55rem] text-text-muted">
+          <p>Webhooks — no backend API yet</p>
+          <p>Delete project — no backend API yet</p>
+          <p>Segment / environment update & delete — no backend API yet</p>
+          <p>Flag targeting rules management — no backend API yet</p>
         </div>
       </section>
     </div>
   );
 }
 
-function SettingsField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function SettingsField({
+  label,
+  value,
+  mono,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  highlight?: "green" | "amber";
+}) {
+  const color =
+    highlight === "green"
+      ? "text-green-400"
+      : highlight === "amber"
+      ? "text-amber-400"
+      : "text-text-secondary";
+
   return (
     <div>
       <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5">{label}</div>
-      <div className={`${mono ? "font-mono text-[0.65rem]" : "text-sm"} text-text-secondary bg-bg-card border border-border px-3 py-2`}>
+      <div className={`${mono ? "font-mono text-[0.65rem]" : "text-sm"} ${color} bg-bg-card border border-border px-3 py-2`}>
         {value}
       </div>
+    </div>
+  );
+}
+
+function EndpointRow({ method, path, note }: { method: string; path: string; note: string }) {
+  return (
+    <div className="flex items-start gap-3 flex-wrap">
+      <span className="text-accent-red w-12 shrink-0">{method}</span>
+      <span className="text-text-primary flex-1 min-w-[200px]">{path}</span>
+      <span className="text-text-muted/60">{note}</span>
     </div>
   );
 }

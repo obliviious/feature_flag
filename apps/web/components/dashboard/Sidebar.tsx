@@ -85,6 +85,19 @@ const navigation: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        label: "SDK Connections",
+        href: "/dashboard/sdk-connections",
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="4" cy="8" r="2" stroke="currentColor" strokeWidth="1.2" />
+            <circle cx="12" cy="4" r="2" stroke="currentColor" strokeWidth="1.2" />
+            <circle cx="12" cy="12" r="2" stroke="currentColor" strokeWidth="1.2" />
+            <line x1="5.8" y1="7" x2="10.2" y2="5" stroke="currentColor" strokeWidth="0.8" />
+            <line x1="5.8" y1="9" x2="10.2" y2="11" stroke="currentColor" strokeWidth="0.8" />
+          </svg>
+        ),
+      },
     ],
   },
   {
@@ -364,13 +377,15 @@ export default function Sidebar({
 
         {/* Bottom — SSE status + user */}
         <div className="border-t border-border px-3 py-3 space-y-2.5 shrink-0">
-          {/* Connection indicator */}
-          <div className="flex items-center gap-2 px-2.5 py-1.5">
+          <Link
+            href="/dashboard/sdk-connections"
+            className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-bg-card transition-colors"
+          >
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             <span className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider">
-              SSE Connected
+              SDK Connections
             </span>
-          </div>
+          </Link>
 
           {/* User */}
           <div className="flex items-center gap-2.5 px-2.5 py-1.5">

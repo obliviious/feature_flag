@@ -7,6 +7,7 @@ import { LoadingState } from "@/components/dashboard/LoadingState";
 import { ErrorState } from "@/components/dashboard/ErrorState";
 import { SetupPrompt } from "@/components/dashboard/SetupPrompt";
 import { Modal } from "@/components/dashboard/Modal";
+import type { Flag } from "@/lib/api";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -62,6 +63,12 @@ export default function FlagsPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Edit flag
+  const [editTarget, setEditTarget] = useState<Flag | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", description: "", tags: "", archived: false });
+  const [updating, setUpdating] = useState(false);
+  const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
+
   const { data: flags, loading, error, refetch } = useApiData(
     () => (project ? api.listFlags(project.id) : Promise.resolve([])),
     [project?.id]
@@ -93,6 +100,35 @@ export default function FlagsPage() {
     } catch (e) {
       console.error("Toggle failed:", e);
     }
+  }
+
+  async function handleUpdate() {
+    if (!editTarget) return;
+    setUpdating(true);
+    try {
+      await api.updateFlag(project!.id, editTarget.key, {
+        name: editForm.name.trim(),
+        description: editForm.description.trim() || undefined,
+        tags: editForm.tags ? editForm.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+        archived: editForm.archived,
+      });
+      setEditTarget(null);
+      refetch();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  function openEdit(flag: Flag) {
+    setEditTarget(flag);
+    setEditForm({
+      name: flag.name,
+      description: flag.description ?? "",
+      tags: flag.tags.join(", "),
+      archived: flag.archived,
+    });
   }
 
   async function handleDelete(flagKey: string) {
@@ -237,20 +273,21 @@ export default function FlagsPage() {
 
       {/* Flags table */}
       <div className="border border-border overflow-x-auto">
-        <div className="grid grid-cols-[40px_1fr_80px_140px_200px_90px_40px] min-w-[750px] px-5 py-2.5 border-b border-border bg-bg-card">
+        <div className="grid grid-cols-[40px_1fr_80px_140px_200px_90px_80px] min-w-[800px] px-5 py-2.5 border-b border-border bg-bg-card">
           {["", "Flag", "Type", "Tags", "Environments", "Updated", ""].map((h, i) => (
             <span key={i} className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em]">{h}</span>
           ))}
         </div>
 
-        <div className="divide-y divide-border min-w-[750px]">
+        <div className="divide-y divide-border min-w-[800px]">
           {filtered.map((flag) => {
             const prodEnv = flag.environments?.find((e) => e.environment_slug === "production");
             const firstEnvEnabled = prodEnv?.enabled ?? flag.environments?.[0]?.enabled ?? false;
+            const isExpanded = expandedFlag === flag.key;
             return (
+              <div key={flag.id}>
               <div
-                key={flag.id}
-                className={`grid grid-cols-[40px_1fr_80px_140px_200px_90px_40px] px-5 py-3 hover:bg-bg-card/50 transition-colors group items-center ${
+                className={`grid grid-cols-[40px_1fr_80px_140px_200px_90px_80px] px-5 py-3 hover:bg-bg-card/50 transition-colors group items-center ${
                   flag.archived ? "opacity-50" : ""
                 }`}
               >
@@ -268,7 +305,7 @@ export default function FlagsPage() {
                   </button>
                 </div>
 
-                <div className="min-w-0 pr-4">
+                <div className="min-w-0 pr-4 cursor-pointer" onClick={() => setExpandedFlag(isExpanded ? null : flag.key)}>
                   <div className="font-mono text-[0.7rem] text-text-primary group-hover:text-accent-red transition-colors truncate">{flag.key}</div>
                   <div className="font-mono text-[0.5rem] text-text-muted truncate">{flag.name}</div>
                 </div>
@@ -281,18 +318,36 @@ export default function FlagsPage() {
                   ))}
                 </div>
 
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 flex-wrap">
                   {(flag.environments ?? []).map((env) => (
-                    <div key={env.environment_id} className="flex items-center gap-1" title={`${env.environment_name}: ${env.enabled ? "ON" : "OFF"}`}>
+                    <button
+                      key={env.environment_id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggle(flag.key, env.environment_id, env.enabled);
+                      }}
+                      className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                      title={`${env.environment_name}: click to ${env.enabled ? "disable" : "enable"}`}
+                    >
                       <div className={`w-1.5 h-1.5 rounded-full ${env.enabled ? "bg-green-500" : "bg-[#333]"}`} />
                       <span className="font-mono text-[0.45rem] text-text-muted uppercase">{env.environment_name.slice(0, 4)}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
 
                 <span className="font-mono text-[0.5rem] text-text-muted/60 text-right">{timeAgo(flag.updated_at)}</span>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openEdit(flag); }}
+                    className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-text-primary transition-all p-1"
+                    title="Edit flag"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M8 1l3 3-6 6H2V7l6-6z" stroke="currentColor" strokeWidth="1" />
+                    </svg>
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setDeleteTarget(flag.key); }}
                     className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-accent-red transition-all p-1"
@@ -303,6 +358,23 @@ export default function FlagsPage() {
                     </svg>
                   </button>
                 </div>
+              </div>
+
+              {isExpanded && (
+                <div className="px-5 py-4 bg-bg-card/20 border-t border-border/50 ml-10 mr-5 mb-2">
+                  {flag.description && (
+                    <p className="font-mono text-[0.55rem] text-text-secondary mb-3">{flag.description}</p>
+                  )}
+                  <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider mb-2">Variants</div>
+                  <div className="flex flex-wrap gap-2">
+                    {flag.variants.map((v) => (
+                      <span key={v.id} className="font-mono text-[0.55rem] bg-bg-card border border-border px-2 py-1">
+                        {v.key}: {JSON.stringify(v.value)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               </div>
             );
           })}
@@ -463,6 +535,56 @@ export default function FlagsPage() {
         </div>
       </Modal>
 
+      {/* Edit Flag Modal */}
+      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit Flag">
+        <div className="space-y-4">
+          <SettingsFieldReadonly label="Flag Key" value={editTarget?.key ?? ""} />
+          <div>
+            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Name</label>
+            <input
+              type="text"
+              value={editForm.name}
+              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Description</label>
+            <textarea
+              value={editForm.description}
+              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+              rows={2}
+              className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors resize-none"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">Tags (comma-separated)</label>
+            <input
+              type="text"
+              value={editForm.tags}
+              onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+              className="bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] text-text-primary outline-none w-full focus:border-accent-red/50 transition-colors"
+            />
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editForm.archived}
+              onChange={(e) => setEditForm({ ...editForm, archived: e.target.checked })}
+              className="accent-accent-red"
+            />
+            <span className="font-mono text-[0.6rem] text-text-secondary uppercase tracking-wider">Archived</span>
+          </label>
+          <button
+            onClick={handleUpdate}
+            disabled={updating || !editForm.name.trim()}
+            className="w-full font-mono text-[0.6rem] uppercase tracking-wider px-5 py-2.5 bg-accent-red text-white hover:bg-accent-red-hover transition-colors disabled:opacity-50"
+          >
+            {updating ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </Modal>
+
       {/* Delete Confirmation Modal */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Flag">
         <div className="space-y-4">
@@ -486,6 +608,15 @@ export default function FlagsPage() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function SettingsFieldReadonly({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5">{label}</div>
+      <div className="font-mono text-[0.65rem] text-text-secondary bg-bg-card border border-border px-3 py-2">{value}</div>
     </div>
   );
 }

@@ -7,6 +7,12 @@ const API_URL = "/api/proxy";
 // Types matching backend response structs
 // ============================================================
 
+export interface HealthResponse {
+  status: string;
+  version: string;
+  database: string;
+}
+
 export interface Project {
   id: string;
   organization_id: string;
@@ -88,19 +94,110 @@ export interface CreateSdkKeyResponse extends SdkKey {
   raw_key: string;
 }
 
+export interface SdkConnectionInstance {
+  sdk_instance_id: string;
+  sdk_version: string;
+  key_type: string;
+  runtime: string;
+  last_heartbeat_ts: number;
+}
+
+export interface SdkConnectionEnvironmentSummary {
+  environment_id: string;
+  environment_name: string;
+  environment_slug: string;
+  active_count: number;
+  last_heartbeat_ts: number | null;
+  active_instances: SdkConnectionInstance[];
+}
+
+export interface SdkConnectionsResponse {
+  tracking_enabled: boolean;
+  project_id: string;
+  active_window_secs: number;
+  generated_at: number;
+  total_active_instances: number;
+  environments_with_connections: number;
+  environments_without_connections: number;
+  environments: SdkConnectionEnvironmentSummary[];
+}
+
+export interface AuditLogDiffChange {
+  field: string;
+  before: unknown;
+  after: unknown;
+  kind: string;
+}
+
 export interface AuditLogEntry {
   id: string;
   project_id: string;
   actor_id: string | null;
   actor_email: string | null;
+  actor_type: string | null;
+  actor_name: string | null;
   action: string;
   entity_type: string;
   entity_id: string | null;
   before_state: unknown;
   after_state: unknown;
+  diff: {
+    changes?: AuditLogDiffChange[];
+    change_count?: number;
+  } | null;
   metadata: unknown;
+  severity: string;
+  environment_id: string | null;
+  environment_name: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  request_id: string | null;
   created_at: string;
 }
+
+export interface AuditLogQuery {
+  limit?: number;
+  offset?: number;
+  actor_email?: string;
+  action?: string;
+  entity_type?: string;
+  entity_id?: string;
+  severity?: string;
+  environment_id?: string;
+  since_hours?: number;
+}
+
+export const SEGMENT_OPERATORS = [
+  "eq",
+  "neq",
+  "gt",
+  "gte",
+  "lt",
+  "lte",
+  "in",
+  "not_in",
+  "contains",
+  "starts_with",
+  "ends_with",
+  "matches",
+  "semver_eq",
+  "semver_gt",
+  "semver_lt",
+] as const;
+
+export const AUDIT_ACTIONS = [
+  "flag_created",
+  "flag_updated",
+  "flag_deleted",
+  "flag_toggled",
+  "segment_created",
+  "environment_created",
+  "sdk_key_created",
+  "sdk_key_revoked",
+  "project_created",
+] as const;
+
+export const AUDIT_SEVERITIES = ["info", "warning", "critical"] as const;
 
 // ============================================================
 // API Client Factory
@@ -132,18 +229,43 @@ async function request<T>(
   return res.json();
 }
 
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") {
+      search.set(key, String(value));
+    }
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : "";
+}
+
 export interface SetupResponse {
   organization_id: string;
   project_id: string;
-  environments: { id: string; name: string; slug: string; server_key: string; client_key: string }[];
+  environments: {
+    id: string;
+    name: string;
+    slug: string;
+    server_key: string;
+    client_key: string;
+  }[];
 }
 
 export function createApi(getToken: GetToken) {
   const base = (projectId: string) => `/api/v1/projects/${projectId}`;
 
   return {
+    // Health (public)
+    getHealth: () => request<HealthResponse>(getToken, "/health"),
+
     // Setup (bootstrap org + project + envs + keys)
-    setup: (data: { org_name: string; org_slug: string; project_name: string; project_slug: string }) =>
+    setup: (data: {
+      org_name: string;
+      org_slug: string;
+      project_name: string;
+      project_slug: string;
+    }) =>
       request<SetupResponse>(getToken, "/api/v1/setup", {
         method: "POST",
         body: JSON.stringify(data),
@@ -159,40 +281,55 @@ export function createApi(getToken: GetToken) {
     listFlags: (projectId: string) =>
       request<Flag[]>(getToken, `${base(projectId)}/flags`),
 
-    createFlag: (projectId: string, data: {
-      key: string;
-      name: string;
-      description?: string;
-      flag_type?: string;
-      tags?: string[];
-      variants: { key: string; value: unknown; description?: string }[];
-      default_variant_key: string;
-    }) =>
+    getFlag: (projectId: string, flagKey: string) =>
+      request<Flag>(getToken, `${base(projectId)}/flags/${encodeURIComponent(flagKey)}`),
+
+    createFlag: (
+      projectId: string,
+      data: {
+        key: string;
+        name: string;
+        description?: string;
+        flag_type?: string;
+        tags?: string[];
+        variants: { key: string; value: unknown; description?: string }[];
+        default_variant_key: string;
+      }
+    ) =>
       request<Flag>(getToken, `${base(projectId)}/flags`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
 
-    toggleFlag: (projectId: string, flagKey: string, environmentId: string, enabled: boolean) =>
+    toggleFlag: (
+      projectId: string,
+      flagKey: string,
+      environmentId: string,
+      enabled: boolean
+    ) =>
       request<{ flag_key: string; environment_id: string; enabled: boolean }>(
         getToken,
-        `${base(projectId)}/flags/${flagKey}/toggle`,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/toggle`,
         { method: "PATCH", body: JSON.stringify({ environment_id: environmentId, enabled }) }
       ),
 
-    updateFlag: (projectId: string, flagKey: string, data: {
-      name?: string;
-      description?: string;
-      tags?: string[];
-      archived?: boolean;
-    }) =>
-      request<Flag>(getToken, `${base(projectId)}/flags/${flagKey}`, {
+    updateFlag: (
+      projectId: string,
+      flagKey: string,
+      data: {
+        name?: string;
+        description?: string;
+        tags?: string[];
+        archived?: boolean;
+      }
+    ) =>
+      request<Flag>(getToken, `${base(projectId)}/flags/${encodeURIComponent(flagKey)}`, {
         method: "PUT",
         body: JSON.stringify(data),
       }),
 
     deleteFlag: (projectId: string, flagKey: string) =>
-      request<void>(getToken, `${base(projectId)}/flags/${flagKey}`, {
+      request<void>(getToken, `${base(projectId)}/flags/${encodeURIComponent(flagKey)}`, {
         method: "DELETE",
       }),
 
@@ -200,11 +337,10 @@ export function createApi(getToken: GetToken) {
     listEnvironments: (projectId: string) =>
       request<Environment[]>(getToken, `${base(projectId)}/environments`),
 
-    createEnvironment: (projectId: string, data: {
-      name: string;
-      slug: string;
-      color?: string;
-    }) =>
+    createEnvironment: (
+      projectId: string,
+      data: { name: string; slug: string; color?: string }
+    ) =>
       request<Environment>(getToken, `${base(projectId)}/environments`, {
         method: "POST",
         body: JSON.stringify(data),
@@ -214,13 +350,19 @@ export function createApi(getToken: GetToken) {
     listSegments: (projectId: string) =>
       request<Segment[]>(getToken, `${base(projectId)}/segments`),
 
-    createSegment: (projectId: string, data: {
-      key: string;
-      name: string;
-      description?: string;
-      match_type?: string;
-      constraints?: { attribute: string; operator: string; values: string[] }[];
-    }) =>
+    getSegment: (projectId: string, segmentId: string) =>
+      request<Segment>(getToken, `${base(projectId)}/segments/${segmentId}`),
+
+    createSegment: (
+      projectId: string,
+      data: {
+        key: string;
+        name: string;
+        description?: string;
+        match_type?: string;
+        constraints?: { attribute: string; operator: string; values: string[] }[];
+      }
+    ) =>
       request<Segment>(getToken, `${base(projectId)}/segments`, {
         method: "POST",
         body: JSON.stringify(data),
@@ -230,11 +372,10 @@ export function createApi(getToken: GetToken) {
     listSdkKeys: (projectId: string) =>
       request<SdkKey[]>(getToken, `${base(projectId)}/sdk-keys`),
 
-    createSdkKey: (projectId: string, data: {
-      environment_id: string;
-      name: string;
-      key_type: string;
-    }) =>
+    createSdkKey: (
+      projectId: string,
+      data: { environment_id: string; name: string; key_type: string }
+    ) =>
       request<CreateSdkKeyResponse>(getToken, `${base(projectId)}/sdk-keys`, {
         method: "POST",
         body: JSON.stringify(data),
@@ -245,11 +386,27 @@ export function createApi(getToken: GetToken) {
         method: "POST",
       }),
 
+    listSdkConnections: (projectId: string, activeWindowSecs = 60) =>
+      request<SdkConnectionsResponse>(
+        getToken,
+        `${base(projectId)}/sdk-connections${buildQuery({ active_window_secs: activeWindowSecs })}`
+      ),
+
     // Audit Log
-    listAuditLog: (projectId: string, limit = 50, offset = 0) =>
+    listAuditLog: (projectId: string, query: AuditLogQuery = {}) =>
       request<AuditLogEntry[]>(
         getToken,
-        `${base(projectId)}/audit-log?limit=${limit}&offset=${offset}`
+        `${base(projectId)}/audit-log${buildQuery({
+          limit: query.limit ?? 50,
+          offset: query.offset ?? 0,
+          actor_email: query.actor_email,
+          action: query.action,
+          entity_type: query.entity_type,
+          entity_id: query.entity_id,
+          severity: query.severity,
+          environment_id: query.environment_id,
+          since_hours: query.since_hours,
+        })}`
       ),
   };
 }

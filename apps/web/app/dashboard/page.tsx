@@ -43,11 +43,16 @@ export default function DashboardOverview() {
   );
 
   const { data: auditLog, loading: logLoading } = useApiData(
-    () => (project ? api.listAuditLog(project.id, 6, 0) : Promise.resolve([])),
+    () => (project ? api.listAuditLog(project.id, { limit: 6, offset: 0 }) : Promise.resolve([])),
     [project?.id]
   );
 
-  const loading = projectLoading || flagsLoading || envsLoading || logLoading;
+  const { data: connections, loading: connLoading } = useApiData(
+    () => (project ? api.listSdkConnections(project.id, 60) : Promise.resolve(null)),
+    [project?.id]
+  );
+
+  const loading = projectLoading || flagsLoading || envsLoading || logLoading || connLoading;
 
   if (loading) return <LoadingState label="Loading dashboard..." />;
   if (!project && !projectLoading) return <SetupPrompt />;
@@ -56,8 +61,8 @@ export default function DashboardOverview() {
   const stats: { label: string; value: string; change: string; trend: string }[] = [
     { label: "Total Flags", value: String(flags?.length ?? 0), change: "", trend: "flat" },
     { label: "Environments", value: String(environments?.length ?? 0), change: "", trend: "flat" },
-    { label: "Evaluations (24h)", value: "—", change: "", trend: "flat" },
-    { label: "Avg Latency", value: "—", change: "", trend: "flat" },
+    { label: "Active SDKs", value: connections?.tracking_enabled ? String(connections.total_active_instances) : "—", change: "", trend: "flat" },
+    { label: "Connected Envs", value: connections?.tracking_enabled ? String(connections.environments_with_connections) : "—", change: "", trend: "flat" },
   ];
 
   const recentFlags = (flags ?? []).slice(0, 5);
@@ -239,38 +244,55 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      {/* Evaluations chart placeholder */}
+      {/* SDK connections summary */}
       <div className="border border-border">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-bg-card">
           <span className="font-mono text-[0.6rem] text-text-primary uppercase tracking-wider">
-            Evaluations — Last 7 Days
+            SDK Connections — Last 60s
           </span>
-          <div className="flex gap-4">
-            {["7D", "30D", "90D"].map((p) => (
-              <button
-                key={p}
-                className={`font-mono text-[0.5rem] uppercase tracking-wider transition-colors ${
-                  p === "7D" ? "text-accent-red" : "text-text-muted hover:text-text-secondary"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
+          <Link
+            href="/dashboard/sdk-connections"
+            className="font-mono text-[0.55rem] text-accent-red uppercase tracking-wider hover:text-accent-red-hover transition-colors"
+          >
+            View All {">>>"}
+          </Link>
         </div>
         <div className="p-5">
-          <div className="flex items-center justify-center py-10">
-            <span className="font-mono text-[0.6rem] text-text-muted">Evaluation metrics will appear once the SDK is integrated.</span>
-          </div>
+          {!connections?.tracking_enabled ? (
+            <p className="font-mono text-[0.6rem] text-text-muted text-center py-4">
+              Connection tracking requires Redis on the server.
+            </p>
+          ) : connections.total_active_instances === 0 ? (
+            <p className="font-mono text-[0.6rem] text-text-muted text-center py-4">
+              No SDK instances connected. Integrate the SDK and heartbeats will appear here.
+            </p>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {connections.environments
+                .filter((e) => e.active_count > 0)
+                .map((env) => (
+                  <div key={env.environment_id} className="border border-border px-4 py-3 bg-bg-card/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      <span className="font-mono text-[0.6rem] text-text-primary">{env.environment_name}</span>
+                    </div>
+                    <span className="font-mono text-[0.5rem] text-text-muted">
+                      {env.active_count} instance{env.active_count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Quick actions bar */}
-      <div className="grid sm:grid-cols-3 gap-px bg-border">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
         {[
           { icon: "+", label: "New Flag", desc: "Create a feature flag", href: "/dashboard/flags" },
           { icon: "~", label: "New Segment", desc: "Define a user segment", href: "/dashboard/segments" },
           { icon: "#", label: "Generate Key", desc: "Create an SDK key", href: "/dashboard/sdk-keys" },
+          { icon: "◎", label: "SDK Connections", desc: "View live SDK instances", href: "/dashboard/sdk-connections" },
         ].map((qa) => (
           <Link
             key={qa.label}

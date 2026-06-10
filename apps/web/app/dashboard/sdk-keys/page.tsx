@@ -46,7 +46,8 @@ export default function SDKKeysPage() {
   if (!project) return <SetupPrompt />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
-  const allKeys = (keys ?? []).filter((k) => !k.revoked_at);
+  const activeKeys = (keys ?? []).filter((k) => !k.revoked_at);
+  const revokedKeys = (keys ?? []).filter((k) => k.revoked_at);
   const envMap = new Map((environments ?? []).map((e) => [e.id, e]));
 
   async function handleRevoke(keyId: string) {
@@ -108,41 +109,18 @@ export default function SDKKeysPage() {
         </p>
       </div>
 
-      {allKeys.length === 0 ? (
+      {activeKeys.length === 0 ? (
         <div className="border border-border px-5 py-12 text-center">
-          <p className="font-mono text-[0.6rem] text-text-muted">No SDK keys yet. Generate a key to get started.</p>
+          <p className="font-mono text-[0.6rem] text-text-muted">No active SDK keys yet. Generate a key to get started.</p>
         </div>
       ) : (
-        <div className="border border-border overflow-x-auto">
-          <div className="grid grid-cols-[1fr_80px_110px_110px_100px_60px] min-w-[600px] px-5 py-2.5 border-b border-border bg-bg-card">
-            {["Key", "Type", "Environment", "Created", "Last Used", ""].map((h) => (
-              <span key={h} className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em]">{h}</span>
-            ))}
-          </div>
-          <div className="divide-y divide-border min-w-[600px]">
-            {allKeys.map((k) => {
-              const env = envMap.get(k.environment_id);
-              const isServer = k.key_type === "server";
-              return (
-                <div key={k.id} className="grid grid-cols-[1fr_80px_110px_110px_100px_60px] px-5 py-3 hover:bg-bg-card/50 transition-colors items-center">
-                  <div className="flex items-center gap-2">
-                    <div className="font-mono text-[0.7rem] text-text-primary bg-bg-card border border-border px-2.5 py-1">
-                      {k.key_prefix}{"•".repeat(18)}
-                    </div>
-                  </div>
-                  <span className={`font-mono text-[0.5rem] uppercase tracking-wider px-1.5 py-0.5 w-fit ${
-                    isServer ? "text-accent-red border border-accent-red/20 bg-accent-red/[0.04]" : "text-blue-400/70 border border-blue-400/20 bg-blue-400/[0.04]"
-                  }`}>
-                    {isServer ? "Server" : "Client"}
-                  </span>
-                  <span className="font-mono text-[0.6rem] text-text-secondary">{env?.name ?? "—"}</span>
-                  <span className="font-mono text-[0.5rem] text-text-muted">{formatDate(k.created_at)}</span>
-                  <span className="font-mono text-[0.5rem] text-text-muted/60">{timeAgo(k.last_used_at)}</span>
-                  <button onClick={() => handleRevoke(k.id)} className="font-mono text-[0.5rem] text-accent-red/60 hover:text-accent-red transition-colors uppercase tracking-wider">Revoke</button>
-                </div>
-              );
-            })}
-          </div>
+        <KeyTable keys={activeKeys} envMap={envMap} onRevoke={handleRevoke} showRevoke />
+      )}
+
+      {revokedKeys.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="font-mono text-[0.6rem] text-text-muted uppercase tracking-wider">Revoked Keys</h2>
+          <KeyTable keys={revokedKeys} envMap={envMap} onRevoke={handleRevoke} />
         </div>
       )}
 
@@ -183,6 +161,58 @@ export default function SDKKeysPage() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+function KeyTable({
+  keys,
+  envMap,
+  onRevoke,
+  showRevoke,
+}: {
+  keys: import("@/lib/api").SdkKey[];
+  envMap: Map<string, import("@/lib/api").Environment>;
+  onRevoke: (id: string) => void;
+  showRevoke?: boolean;
+}) {
+  return (
+    <div className="border border-border overflow-x-auto">
+      <div className="grid grid-cols-[1fr_80px_110px_110px_100px_60px] min-w-[600px] px-5 py-2.5 border-b border-border bg-bg-card">
+        {["Key", "Type", "Environment", "Created", "Last Used", ""].map((h) => (
+          <span key={h} className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em]">{h}</span>
+        ))}
+      </div>
+      <div className="divide-y divide-border min-w-[600px]">
+        {keys.map((k) => {
+          const env = envMap.get(k.environment_id);
+          const isServer = k.key_type === "server";
+          return (
+            <div key={k.id} className={`grid grid-cols-[1fr_80px_110px_110px_100px_60px] px-5 py-3 hover:bg-bg-card/50 transition-colors items-center ${k.revoked_at ? "opacity-50" : ""}`}>
+              <div className="flex items-center gap-2">
+                <div className="font-mono text-[0.7rem] text-text-primary bg-bg-card border border-border px-2.5 py-1">
+                  {k.key_prefix}{"•".repeat(18)}
+                </div>
+              </div>
+              <span className={`font-mono text-[0.5rem] uppercase tracking-wider px-1.5 py-0.5 w-fit ${
+                isServer ? "text-accent-red border border-accent-red/20 bg-accent-red/[0.04]" : "text-blue-400/70 border border-blue-400/20 bg-blue-400/[0.04]"
+              }`}>
+                {isServer ? "Server" : "Client"}
+              </span>
+              <span className="font-mono text-[0.6rem] text-text-secondary">{env?.name ?? "—"}</span>
+              <span className="font-mono text-[0.5rem] text-text-muted">{formatDate(k.created_at)}</span>
+              <span className="font-mono text-[0.5rem] text-text-muted/60">
+                {k.revoked_at ? "Revoked" : timeAgo(k.last_used_at)}
+              </span>
+              {showRevoke ? (
+                <button onClick={() => onRevoke(k.id)} className="font-mono text-[0.5rem] text-accent-red/60 hover:text-accent-red transition-colors uppercase tracking-wider">Revoke</button>
+              ) : (
+                <span />
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
