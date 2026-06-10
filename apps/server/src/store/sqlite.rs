@@ -740,6 +740,7 @@ impl SqliteStore {
         actor_email_override: Option<String>,
     ) -> Result<AuditLogRow> {
         let severity = severity_override.unwrap_or("info");
+        let metadata_json = metadata.cloned().unwrap_or_else(|| serde_json::json!({}));
         let id = Uuid::new_v4();
         let row = sqlx::query_as::<_, AuditLogRow>(
             "INSERT INTO audit_log (
@@ -767,7 +768,7 @@ impl SqliteStore {
         .bind(before_state)
         .bind(after_state)
         .bind(diff)
-        .bind(metadata)
+        .bind(metadata_json)
         .bind(severity)
         .bind(environment_id)
         .bind(environment_name)
@@ -775,7 +776,16 @@ impl SqliteStore {
         .bind(ctx.user_agent.clone())
         .bind(ctx.request_id)
         .fetch_one(&self.pool)
-        .await?;
+        .await
+        .inspect_err(|e| {
+            tracing::warn!(
+                error = %e,
+                action,
+                entity_type,
+                %project_id,
+                "audit log insert failed"
+            )
+        })?;
         Ok(row)
     }
 
