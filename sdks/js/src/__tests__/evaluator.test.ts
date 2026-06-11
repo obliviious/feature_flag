@@ -29,7 +29,7 @@ function makeSimpleFlag(
       variants: [on, off],
       environment: {
         enabled,
-        defaultVariantId: enabled ? on.id : off.id,
+        defaultVariantId: off.id,
         rules: [],
         overrides: [],
       },
@@ -99,6 +99,33 @@ describe("Evaluator", () => {
       false,
     );
     expect(result2.reason).toBe("DEFAULT");
+    expect(result2.value).toBe(true);
+  });
+
+  it("returns on variant value for enabled two-variant number flags", () => {
+    const on = makeVariant("on", 15);
+    const off = makeVariant("off", 20);
+    const flag: FlagConfig = {
+      key: "count",
+      flagType: "number",
+      variants: [on, off],
+      environment: {
+        enabled: true,
+        defaultVariantId: off.id,
+        rules: [],
+        overrides: [],
+      },
+    };
+    const evaluator = makeEvaluator([flag]);
+    const enabled = evaluator.evaluate("count", {}, 5);
+    expect(enabled.reason).toBe("DEFAULT");
+    expect(enabled.value).toBe(15);
+
+    flag.environment.enabled = false;
+    evaluator.update({ flags: { count: flag }, segments: {}, version: 1 });
+    const disabled = evaluator.evaluate("count", {}, 5);
+    expect(disabled.reason).toBe("DISABLED");
+    expect(disabled.value).toBe(20);
   });
 
   it("matches segment rules", () => {
@@ -151,7 +178,7 @@ describe("Evaluator", () => {
       false,
     );
     expect(ukResult.reason).toBe("DEFAULT");
-    expect(ukResult.value).toBe(false);
+    expect(ukResult.value).toBe(true);
   });
 
   it("handles percentage rollouts correctly", () => {

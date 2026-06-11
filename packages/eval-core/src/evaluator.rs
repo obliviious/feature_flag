@@ -97,8 +97,8 @@ impl Evaluator {
             }
         }
 
-        // 5. No rule matched → default
-        let variant = self.find_variant(&flag.variants, env.default_variant_id);
+        // 5. No rule matched → fallthrough (when flag is on)
+        let variant = self.resolve_fallthrough_variant(flag);
         EvaluationResult {
             flag_key: flag_key.to_string(),
             variant_key: variant.map(|v| v.key.clone()).unwrap_or_default(),
@@ -108,6 +108,18 @@ impl Evaluator {
             reason: EvaluationReason::Default,
             rule_id: None,
         }
+    }
+
+    /// When a flag is enabled with no matching rules, serve the "on" variant for
+    /// simple two-variant flags. `default_variant_id` is the off/disabled variant.
+    fn resolve_fallthrough_variant<'a>(&self, flag: &'a FlagConfig) -> Option<&'a Variant> {
+        if flag.variants.len() == 2 {
+            return flag
+                .variants
+                .iter()
+                .find(|v| v.id != flag.environment.default_variant_id);
+        }
+        self.find_variant(&flag.variants, flag.environment.default_variant_id)
     }
 
     /// Evaluate all segments referenced by a rule.
@@ -222,9 +234,9 @@ impl Evaluator {
             }
         }
 
-        // Fallback to default
-        let variant = self.find_variant(&flag.variants, flag.environment.default_variant_id);
-        EvaluationResult {
+        // Fallback to fallthrough
+        let variant = self.resolve_fallthrough_variant(flag);
+        return EvaluationResult {
             flag_key: flag.key.clone(),
             variant_key: variant.map(|v| v.key.clone()).unwrap_or_default(),
             value: variant
@@ -232,7 +244,7 @@ impl Evaluator {
                 .unwrap_or_else(|| default_value.clone()),
             reason: EvaluationReason::Default,
             rule_id: None,
-        }
+        };
     }
 
     fn find_variant<'a>(&self, variants: &'a [Variant], id: Uuid) -> Option<&'a Variant> {
@@ -259,7 +271,6 @@ mod tests {
         let off_variant = make_variant("off", json!(false));
         let on_id = on_variant.id;
         let off_id = off_variant.id;
-        let default_id = if enabled { on_id } else { off_id };
 
         let config = FlagConfig {
             key: key.to_string(),
@@ -267,7 +278,7 @@ mod tests {
             variants: vec![on_variant, off_variant],
             environment: FlagEnvironment {
                 enabled,
-                default_variant_id: default_id,
+                default_variant_id: off_id,
                 rules: vec![],
                 overrides: vec![],
             },
@@ -409,7 +420,7 @@ mod tests {
         };
         let result = evaluator.evaluate("us-feature", &ctx_uk, &json!(false));
         assert_eq!(result.reason, EvaluationReason::Default);
-        assert_eq!(result.value, json!(false));
+        assert_eq!(result.value, json!(true));
     }
 
     #[test]

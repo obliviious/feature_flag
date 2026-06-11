@@ -84,8 +84,8 @@ export class Evaluator {
       }
     }
 
-    // 5. No rule matched → default
-    const variant = this.findVariant(flag.variants, env.defaultVariantId);
+    // 5. No rule matched → fallthrough (when flag is on)
+    const variant = this.resolveFallthroughVariant(flag);
     return {
       flagKey,
       variantKey: variant?.key ?? "",
@@ -226,17 +226,23 @@ export class Evaluator {
       }
     }
 
-    // Fallback to default
-    const variant = this.findVariant(
-      flag.variants,
-      flag.environment.defaultVariantId,
-    );
+    // Fallback to fallthrough
+    const variant = this.resolveFallthroughVariant(flag);
     return {
       flagKey: flag.key,
       variantKey: variant?.key ?? "",
       value: variant?.value ?? defaultValue,
       reason: "DEFAULT" as EvaluationReason,
     };
+  }
+
+  private resolveFallthroughVariant(flag: FlagConfig): Variant | undefined {
+    if (flag.variants.length === 2) {
+      return flag.variants.find(
+        (v) => v.id !== flag.environment.defaultVariantId,
+      );
+    }
+    return this.findVariant(flag.variants, flag.environment.defaultVariantId);
   }
 
   private findVariant(variants: Variant[], id: string): Variant | undefined {

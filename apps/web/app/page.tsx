@@ -6,6 +6,7 @@ import Features from "@/components/Features";
 import DeepDive from "@/components/DeepDive";
 import Stats from "@/components/Stats";
 import HowItWorks from "@/components/HowItWorks";
+import SDKSection from "@/components/SDKSection";
 import OpenSource from "@/components/OpenSource";
 import Pricing from "@/components/Pricing";
 import Testimonials from "@/components/Testimonials";
@@ -24,6 +25,7 @@ export default function Home() {
       <DeepDive />
       <Stats />
       <HowItWorks />
+      <SDKSection />
       <OpenSource />
       <Pricing />
       <Testimonials />

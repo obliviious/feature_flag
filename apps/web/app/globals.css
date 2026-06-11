@@ -385,6 +385,171 @@
 }
 
 /* ============================================================
+   Blog Markdown Prose  (.prose-flagforge)
+   ============================================================ */
+
+.prose-flagforge {
+  color: #C1BCA9;
+  font-size: 1rem;
+  line-height: 1.85;
+  max-width: 100%;
+}
+
+.prose-flagforge h2 {
+  font-family: "DM Serif Display", "Georgia", serif;
+  font-size: 1.6rem;
+  line-height: 1.25;
+  color: #e8e3d5;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #2a2720;
+}
+
+.prose-flagforge h3 {
+  font-family: "DM Serif Display", "Georgia", serif;
+  font-size: 1.2rem;
+  line-height: 1.3;
+  color: #e8e3d5;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose-flagforge p {
+  margin-bottom: 1.25rem;
+}
+
+.prose-flagforge a {
+  color: #790f11;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(121, 15, 17, 0.4);
+  transition: color 0.2s ease;
+}
+.prose-flagforge a:hover {
+  color: #a3191c;
+  text-decoration-color: #a3191c;
+}
+
+.prose-flagforge strong {
+  color: #e8e3d5;
+  font-weight: 600;
+}
+
+.prose-flagforge em {
+  font-style: italic;
+  color: #b0aa97;
+}
+
+/* Code — inline */
+.prose-flagforge code:not(pre code) {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.82em;
+  background: #1e1c16;
+  border: 1px solid #2a2720;
+  color: #c9956a;
+  padding: 0.15em 0.45em;
+  border-radius: 0;
+}
+
+/* Code — blocks */
+.prose-flagforge pre {
+  background: #0f0e0c;
+  border: 1px solid #2a2720;
+  border-left: 2px solid #790f11;
+  padding: 1.25rem 1.5rem;
+  overflow-x: auto;
+  margin: 1.75rem 0;
+  position: relative;
+}
+
+.prose-flagforge pre code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: #C1BCA9;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* Tables */
+.prose-flagforge table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.75rem 0;
+  font-size: 0.875rem;
+}
+
+.prose-flagforge th {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a8574;
+  background: #1a1814;
+  border: 1px solid #2a2720;
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+}
+
+.prose-flagforge td {
+  border: 1px solid #2a2720;
+  padding: 0.6rem 0.9rem;
+  color: #C1BCA9;
+  vertical-align: top;
+}
+
+.prose-flagforge tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+/* Horizontal rule */
+.prose-flagforge hr {
+  border: none;
+  border-top: 1px solid #2a2720;
+  margin: 2.5rem 0;
+}
+
+/* Blockquote */
+.prose-flagforge blockquote {
+  border-left: 3px solid #790f11;
+  padding-left: 1.25rem;
+  margin: 1.5rem 0;
+  color: #9c9687;
+  font-style: italic;
+}
+
+/* Lists */
+.prose-flagforge ul,
+.prose-flagforge ol {
+  padding-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.prose-flagforge ul {
+  list-style: none;
+}
+
+.prose-flagforge ul li {
+  position: relative;
+  padding-left: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.prose-flagforge ul li::before {
+  content: "›";
+  position: absolute;
+  left: -0.2rem;
+  color: #790f11;
+  font-weight: 700;
+}
+
+.prose-flagforge ol li {
+  margin-bottom: 0.4rem;
+}
+
+/* ============================================================
    Ticker / Marquee
    ============================================================ */
 
