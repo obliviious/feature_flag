@@ -451,6 +451,170 @@ impl SqliteStore {
         Ok(rows)
     }
 
+    // ============================================================
+    // Targeting rules — write methods
+    // ============================================================
+
+    pub async fn create_targeting_rule(
+        &self,
+        flag_environment_id: Uuid,
+        rank: i32,
+        description: Option<&str>,
+        variant_id: Option<Uuid>,
+    ) -> Result<TargetingRuleRow> {
+        let id = Uuid::new_v4();
+        let row = sqlx::query_as::<_, TargetingRuleRow>(
+            "INSERT INTO targeting_rules (id, flag_environment_id, rank, description, variant_id)
+             VALUES (?, ?, ?, ?, ?) RETURNING *",
+        )
+        .bind(id)
+        .bind(flag_environment_id)
+        .bind(rank)
+        .bind(description)
+        .bind(variant_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn update_targeting_rule(
+        &self,
+        rule_id: Uuid,
+        rank: Option<i32>,
+        description: Option<&str>,
+        variant_id: Option<Uuid>,
+    ) -> Result<TargetingRuleRow> {
+        let row = sqlx::query_as::<_, TargetingRuleRow>(
+            "UPDATE targeting_rules SET
+                rank        = COALESCE(?, rank),
+                description = COALESCE(?, description),
+                variant_id  = COALESCE(?, variant_id)
+             WHERE id = ? RETURNING *",
+        )
+        .bind(rank)
+        .bind(description)
+        .bind(variant_id)
+        .bind(rule_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn delete_targeting_rule(&self, rule_id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM targeting_rules WHERE id = ?")
+            .bind(rule_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn replace_rule_segments(
+        &self,
+        rule_id: Uuid,
+        segments: &[(Uuid, bool)], // (segment_id, negate)
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM rule_segments WHERE rule_id = ?")
+            .bind(rule_id)
+            .execute(&self.pool)
+            .await?;
+        for (segment_id, negate) in segments {
+            let id = Uuid::new_v4();
+            sqlx::query(
+                "INSERT INTO rule_segments (id, rule_id, segment_id, negate) VALUES (?, ?, ?, ?)",
+            )
+            .bind(id)
+            .bind(rule_id)
+            .bind(segment_id)
+            .bind(negate)
+            .execute(&self.pool)
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn replace_rule_distributions(
+        &self,
+        rule_id: Uuid,
+        distributions: &[(Uuid, i32)], // (variant_id, rollout_pct in basis points)
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM rule_distributions WHERE rule_id = ?")
+            .bind(rule_id)
+            .execute(&self.pool)
+            .await?;
+        for (i, (variant_id, rollout_pct)) in distributions.iter().enumerate() {
+            let id = Uuid::new_v4();
+            sqlx::query(
+                "INSERT INTO rule_distributions (id, rule_id, variant_id, rollout_pct, sort_order)
+                 VALUES (?, ?, ?, ?, ?)",
+            )
+            .bind(id)
+            .bind(rule_id)
+            .bind(variant_id)
+            .bind(rollout_pct)
+            .bind(i as i32)
+            .execute(&self.pool)
+            .await?;
+        }
+        Ok(())
+    }
+
+    // ============================================================
+    // Flag overrides — write methods
+    // ============================================================
+
+    pub async fn upsert_flag_override(
+        &self,
+        flag_environment_id: Uuid,
+        targeting_key: &str,
+        variant_id: Uuid,
+    ) -> Result<FlagOverrideRow> {
+        let id = Uuid::new_v4();
+        let row = sqlx::query_as::<_, FlagOverrideRow>(
+            "INSERT INTO flag_overrides (id, flag_environment_id, targeting_key, variant_id)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT(flag_environment_id, targeting_key)
+             DO UPDATE SET variant_id = excluded.variant_id
+             RETURNING *",
+        )
+        .bind(id)
+        .bind(flag_environment_id)
+        .bind(targeting_key)
+        .bind(variant_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn delete_flag_override(
+        &self,
+        flag_environment_id: Uuid,
+        targeting_key: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            "DELETE FROM flag_overrides WHERE flag_environment_id = ? AND targeting_key = ?",
+        )
+        .bind(flag_environment_id)
+        .bind(targeting_key)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_flag_environment_id(
+        &self,
+        flag_id: Uuid,
+        environment_id: Uuid,
+    ) -> Result<Option<Uuid>> {
+        let row: Option<(Uuid,)> = sqlx::query_as(
+            "SELECT id FROM flag_environments WHERE flag_id = ? AND environment_id = ?",
+        )
+        .bind(flag_id)
+        .bind(environment_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|(id,)| id))
+    }
+
     pub async fn get_targeting_rules(
         &self,
         flag_environment_id: Uuid,

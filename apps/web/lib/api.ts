@@ -185,6 +185,43 @@ export const SEGMENT_OPERATORS = [
   "semver_lt",
 ] as const;
 
+// ============================================================
+// Targeting Rules & Overrides
+// ============================================================
+
+export interface RuleSegment {
+  id: string;
+  segment_id: string;
+  negate: boolean;
+}
+
+export interface RuleDistribution {
+  id: string;
+  variant_id: string;
+  /** 0–100 integer */
+  percentage: number;
+}
+
+export interface TargetingRule {
+  id: string;
+  flag_environment_id: string;
+  rank: number;
+  description: string | null;
+  /** Serve a single variant when all segments match. Null when using distributions. */
+  variant_id: string | null;
+  segments: RuleSegment[];
+  distributions: RuleDistribution[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FlagOverride {
+  id: string;
+  targeting_key: string;
+  variant_id: string;
+  created_at: string;
+}
+
 export const AUDIT_ACTIONS = [
   "flag_created",
   "flag_updated",
@@ -400,6 +437,94 @@ export function createApi(getToken: GetToken) {
       request<SdkConnectionsResponse>(
         getToken,
         `${base(projectId)}/sdk-connections${buildQuery({ active_window_secs: activeWindowSecs })}`
+      ),
+
+    // Targeting Rules
+    listRules: (projectId: string, flagKey: string, environmentId: string) =>
+      request<TargetingRule[]>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/environments/${environmentId}/rules`
+      ),
+
+    createRule: (
+      projectId: string,
+      flagKey: string,
+      environmentId: string,
+      data: {
+        rank: number;
+        description?: string;
+        variant_id?: string;
+        segments?: { segment_id: string; negate?: boolean }[];
+        distributions?: { variant_id: string; percentage: number }[];
+      }
+    ) =>
+      request<TargetingRule>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/environments/${environmentId}/rules`,
+        { method: "POST", body: JSON.stringify(data) }
+      ),
+
+    updateRule: (
+      projectId: string,
+      flagKey: string,
+      environmentId: string,
+      ruleId: string,
+      data: {
+        rank?: number;
+        description?: string;
+        variant_id?: string;
+        segments?: { segment_id: string; negate?: boolean }[];
+        distributions?: { variant_id: string; percentage: number }[];
+      }
+    ) =>
+      request<TargetingRule>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/environments/${environmentId}/rules/${ruleId}`,
+        { method: "PUT", body: JSON.stringify(data) }
+      ),
+
+    deleteRule: (
+      projectId: string,
+      flagKey: string,
+      environmentId: string,
+      ruleId: string
+    ) =>
+      request<void>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/environments/${environmentId}/rules/${ruleId}`,
+        { method: "DELETE" }
+      ),
+
+    // Flag Overrides
+    listOverrides: (projectId: string, flagKey: string, environmentId: string) =>
+      request<FlagOverride[]>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/environments/${environmentId}/overrides`
+      ),
+
+    upsertOverride: (
+      projectId: string,
+      flagKey: string,
+      environmentId: string,
+      targeting_key: string,
+      variant_id: string
+    ) =>
+      request<FlagOverride>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/environments/${environmentId}/overrides`,
+        { method: "PUT", body: JSON.stringify({ targeting_key, variant_id }) }
+      ),
+
+    deleteOverride: (
+      projectId: string,
+      flagKey: string,
+      environmentId: string,
+      targeting_key: string
+    ) =>
+      request<void>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/environments/${environmentId}/overrides/${encodeURIComponent(targeting_key)}`,
+        { method: "DELETE" }
       ),
 
     // Audit Log

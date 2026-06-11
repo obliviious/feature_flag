@@ -5,6 +5,7 @@ pub mod flags;
 pub mod health;
 pub mod heartbeat;
 pub mod projects;
+pub mod rules;
 pub mod sdk_keys;
 pub mod segments;
 pub mod setup;

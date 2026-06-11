@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use axum::{
     middleware as axum_mw,
-    routing::{get, patch, post, put},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -230,6 +230,24 @@ fn management_routes() -> Router<AppState> {
         )
         .route("/flags/{flag_key}/toggle", patch(flags::toggle_flag))
         .route("/flags/{flag_key}/variants", put(flags::update_flag_variants))
+        // Targeting rules
+        .route(
+            "/flags/{flag_key}/environments/{environment_id}/rules",
+            get(rules::list_rules).post(rules::create_rule),
+        )
+        .route(
+            "/flags/{flag_key}/environments/{environment_id}/rules/{rule_id}",
+            put(rules::update_rule).delete(rules::delete_rule),
+        )
+        // Per-user overrides
+        .route(
+            "/flags/{flag_key}/environments/{environment_id}/overrides",
+            get(rules::list_overrides).put(rules::upsert_override),
+        )
+        .route(
+            "/flags/{flag_key}/environments/{environment_id}/overrides/{targeting_key}",
+            delete(rules::delete_override),
+        )
         .route(
             "/segments",
             post(segments::create_segment).get(segments::list_segments),
