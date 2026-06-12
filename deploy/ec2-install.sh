@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
-# Download the latest flagforge-server binary from GitHub Releases and install it.
-# Run on EC2 (no Rust required). Redis + .env stay on the host.
+# Download the latest flagforge-server binary from GitHub Releases into the repo root.
+# Run on EC2 (no Rust required). Redis + .env stay in the same directory.
 #
-# Usage:
-#   export GITHUB_REPO="your-user/feature_flag"   # required
-#   export INSTALL_DIR="$HOME/flagforge"          # optional
+# Usage (from repo root):
+#   export GITHUB_REPO="your-user/feature_flag"
 #   ./deploy/ec2-install.sh
 #
 # Private repo: export GITHUB_TOKEN="ghp_..."
 
 set -euo pipefail
 
-GITHUB_REPO="${GITHUB_REPO:?Set GITHUB_REPO e.g. your-user/feature_flag}"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/flagforge}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="${INSTALL_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+GITHUB_REPO="${GITHUB_REPO:obliviious/feature_flag}"
 RELEASE_TAG="${RELEASE_TAG:-latest-build}"
 BINARY_NAME="flagforge-server"
 
-mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
 AUTH_HEADER=()
@@ -25,6 +24,7 @@ if [[ -n "${GITHUB_TOKEN:-}" ]]; then
 fi
 
 echo "Downloading ${BINARY_NAME} from ${GITHUB_REPO} (${RELEASE_TAG})..."
+echo "Install directory: ${INSTALL_DIR}"
 
 curl -fsSL "${AUTH_HEADER[@]}" \
   -o "${BINARY_NAME}" \
@@ -40,10 +40,11 @@ chmod +x "${BINARY_NAME}"
 echo ""
 echo "Installed: ${INSTALL_DIR}/${BINARY_NAME}"
 echo ""
-echo "Run (set env first — copy apps/server/.env or export vars):"
+echo "Ensure .env exists in ${INSTALL_DIR} (see .env.example), then:"
 echo "  cd ${INSTALL_DIR}"
 echo "  ./${BINARY_NAME}"
 echo ""
-echo "Or restart if already running:"
+echo "Or restart:"
+echo "  cd ${INSTALL_DIR}"
 echo "  pkill -f flagforge-server || true"
 echo "  nohup ./${BINARY_NAME} > flagforge.log 2>&1 &"
