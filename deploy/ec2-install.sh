@@ -3,7 +3,6 @@
 # Run on EC2 (no Rust required). Redis + .env stay in the same directory.
 #
 # Usage (from repo root):
-#   export GITHUB_REPO="your-user/feature_flag"
 #   ./deploy/ec2-install.sh
 #
 # Private repo: export GITHUB_TOKEN="ghp_..."
@@ -12,7 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="${INSTALL_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-GITHUB_REPO="${GITHUB_REPO:obliviious/feature_flag}"
+GITHUB_REPO="${GITHUB_REPO:-obliviious/feature_flag}"
 RELEASE_TAG="${RELEASE_TAG:-latest-build}"
 BINARY_NAME="flagforge-server"
 
