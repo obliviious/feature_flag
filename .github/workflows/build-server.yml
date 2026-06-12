@@ -1,0 +1,85 @@
+# Build flagforge-server for Linux (EC2) on every push to main.
+# Binary is published to the "latest-build" GitHub Release for curl download on EC2.
+
+name: Build server binary
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "apps/server/**"
+      - "packages/eval-core/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/build-server.yml"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build release binary
+        run: cargo build --release -p flagforge-server
+
+      - name: Prepare artifact bundle
+        run: |
+          cp target/release/flagforge-server flagforge-server
+          chmod +x flagforge-server
+          sha256sum flagforge-server > flagforge-server.sha256
+          echo "commit=${GITHUB_SHA}" > build-info.txt
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build-info.txt
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flagforge-server-linux-amd64
+          path: |
+            flagforge-server
+            flagforge-server.sha256
+            build-info.txt
+          retention-days: 30
+
+      - name: Publish to GitHub Release (latest-build)
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest-build
+          name: Latest server binary (linux x86_64)
+          body: |
+            Auto-built from `${{ github.sha }}` on `${{ github.ref_name }}`.
+            Download `flagforge-server` to EC2 — no Rust toolchain required.
+          allowUpdates: true
+          replacesArtifacts: true
+          makeLatest: false
+          prerelease: true
+          artifacts: flagforge-server,flagforge-server.sha256,build-info.txt
