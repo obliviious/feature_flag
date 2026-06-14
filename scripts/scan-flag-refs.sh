@@ -12,7 +12,8 @@
 #   FLAGFORGE_BRANCH    Branch name (default: current git branch or "main")
 #   FLAGFORGE_REPO      Repo identifier (default: git remote origin URL)
 #   SCAN_PATH           Directory to scan (default: .)
-#   RG_EXTRA_ARGS       Extra args passed to ripgrep (e.g. '--glob !node_modules')
+#   SCAN_MODE           strict (default) or broad — strict matches SDK/API usage only
+#   RG_EXTRA_ARGS       Extra args passed to ripgrep
 #
 # Example .env:
 #   FLAGFORGE_API=https://flags.example.com
@@ -48,6 +49,23 @@ load_env_file() {
   done < "$file"
 }
 
+escape_regex() {
+  local input="$1"
+  printf '%s' "$input" | sed 's/[][\\^$.*+?{}()|]/\\&/g'
+}
+
+# Match FlagForge SDK / evaluator usage with a quoted flag key (not bare substrings).
+build_strict_pattern() {
+  local flag_key="$1"
+  local escaped
+  escaped="$(escape_regex "$flag_key")"
+  local q='["'\''"]'
+
+  cat <<EOF
+use(?:Boolean|String|Number)?Flag\\s*\\([\\s\\S]{0,160}?${q}${escaped}${q}|useFlag\\s*\\([\\s\\S]{0,160}?${q}${escaped}${q}|(?:evaluate|getBooleanValue|getStringValue|getNumberValue|getJsonValue)\\s*\\(\\s*${q}${escaped}${q}|evaluator\\.evaluate\\s*\\(\\s*${q}${escaped}${q}|flagKey\\s*:\\s*${q}${escaped}${q}
+EOF
+}
+
 ENV_FILE="${FLAGFORGE_ENV_FILE:-.env}"
 load_env_file "$ENV_FILE"
 
@@ -58,6 +76,7 @@ FLAGFORGE_API="${FLAGFORGE_API:-${FLAGFORGE_API_URL:-}}"
 : "${FLAGFORGE_MGMT_KEY:?Set FLAGFORGE_MGMT_KEY (mgmt_... key from dashboard)}"
 
 SCAN_PATH="${SCAN_PATH:-.}"
+SCAN_MODE="${SCAN_MODE:-strict}"
 BRANCH="${FLAGFORGE_BRANCH:-$(git -C "$SCAN_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)}"
 REPO="${FLAGFORGE_REPO:-$(git -C "$SCAN_PATH" config --get remote.origin.url 2>/dev/null || echo local)}"
 COMMIT_SHA="${FLAGFORGE_COMMIT_SHA:-$(git -C "$SCAN_PATH" rev-parse HEAD 2>/dev/null || echo unknown)}"
@@ -75,6 +94,33 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
+if [[ "$SCAN_MODE" != "strict" && "$SCAN_MODE" != "broad" ]]; then
+  echo "error: SCAN_MODE must be 'strict' (default) or 'broad'" >&2
+  exit 1
+fi
+
+# Default ripgrep scope: source files only, skip locks/generated/vendor paths.
+RG_GLOBS=(
+  --glob '*.ts'
+  --glob '*.tsx'
+  --glob '*.js'
+  --glob '*.jsx'
+  --glob '*.mjs'
+  --glob '*.cjs'
+  --glob '*.py'
+  --glob '*.go'
+  --glob '*.rs'
+  --glob '!node_modules'
+  --glob '!.git'
+  --glob '!target'
+  --glob '!dist'
+  --glob '!.next'
+  --glob '!package-lock.json'
+  --glob '!yarn.lock'
+  --glob '!pnpm-lock.yaml'
+  --glob '!**/scan-flag-refs.sh'
+)
+
 API="${FLAGFORGE_API%/}"
 AUTH_HEADER="Authorization: ${FLAGFORGE_MGMT_KEY}"
 
@@ -90,10 +136,21 @@ fi
 scan_flag() {
   local flag_key="$1"
   local refs_json
+  local pattern
+  local rg_args=()
 
-  refs_json=$(rg --json "$flag_key" "$SCAN_PATH" \
+  if [[ "$SCAN_MODE" == "strict" ]]; then
+    pattern="$(build_strict_pattern "$flag_key")"
+    rg_args=(--multiline -P -e "$pattern")
+  else
+    echo "  warning: SCAN_MODE=broad uses substring matching and may produce false positives" >&2
+    rg_args=(-F "$flag_key")
+  fi
+
+  # shellcheck disable=SC2206
+  refs_json=$(rg --json "${rg_args[@]}" "$SCAN_PATH" \
+    "${RG_GLOBS[@]}" \
     ${RG_EXTRA_ARGS:-} \
-    --glob '!node_modules' --glob '!.git' --glob '!target' --glob '!dist' --glob '!.next' \
     2>/dev/null | jq -s --arg repo "$REPO" --arg sha "$COMMIT_SHA" \
     '[.[] | select(.type=="match") | {
       repo: $repo,
@@ -101,7 +158,7 @@ scan_flag() {
       file_path: .data.path.text,
       line_number: .data.line_number,
       snippet: (.data.lines.text | gsub("\n"; ""))
-    }]' || echo '[]')
+    }] | unique_by(.file_path + ":" + (.line_number|tostring))' || echo '[]')
 
   local count
   count=$(echo "$refs_json" | jq 'length')
@@ -116,7 +173,7 @@ scan_flag() {
   echo "  $flag_key → $count reference(s)"
 }
 
-echo "Scanning branch=$BRANCH repo=$REPO commit=$COMMIT_SHA"
+echo "Scanning branch=$BRANCH repo=$REPO commit=$COMMIT_SHA mode=$SCAN_MODE"
 while IFS= read -r flag_key; do
   [ -n "$flag_key" ] || continue
   scan_flag "$flag_key"
