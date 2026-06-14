@@ -4,6 +4,8 @@ pub mod evaluate;
 pub mod flags;
 pub mod health;
 pub mod heartbeat;
+pub mod lifecycle;
+pub mod management_keys;
 pub mod projects;
 pub mod rules;
 pub mod sdk_keys;

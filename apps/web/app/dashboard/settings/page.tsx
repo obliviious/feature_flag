@@ -1,10 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useProject } from "@/lib/project-context";
 import { useApiData } from "@/lib/use-api-data";
 import { LoadingState } from "@/components/dashboard/LoadingState";
 import { SetupPrompt } from "@/components/dashboard/SetupPrompt";
+import { Modal } from "@/components/dashboard/Modal";
+import { CodeSnippet } from "@/components/dashboard/CodeSnippet";
+import {
+  buildGithubSecretsList,
+  buildScanCommand,
+  buildScanScriptEnv,
+} from "@/lib/lifecycle-snippets";
 
 export default function SettingsPage() {
   const { user, isLoaded } = useUser();
@@ -125,6 +133,9 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* Management API keys for CI */}
+      <ManagementKeysSection projectId={detail.id} />
+
       {/* API section */}
       <section className="border border-border">
         <div className="px-5 py-3 border-b border-border bg-bg-card">
@@ -207,5 +218,173 @@ function EndpointRow({ method, path, note }: { method: string; path: string; not
       <span className="text-text-primary flex-1 min-w-[200px]">{path}</span>
       <span className="text-text-muted/60">{note}</span>
     </div>
+  );
+}
+
+function ManagementKeysSection({ projectId }: { projectId: string }) {
+  const { api } = useProject();
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createdRawKey, setCreatedRawKey] = useState<string | null>(null);
+
+  const { data: keys, loading, refetch } = useApiData(
+    () => api.listManagementKeys(projectId),
+    [projectId]
+  );
+
+  const active = (keys ?? []).filter((k) => !k.revoked_at);
+  const revoked = (keys ?? []).filter((k) => k.revoked_at);
+
+  async function handleCreate() {
+    if (!name.trim()) return;
+    setCreating(true);
+    try {
+      const result = await api.createManagementKey(projectId, { name: name.trim() });
+      setCreatedRawKey(result.raw_key);
+      setName("");
+      refetch();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleRevoke(keyId: string) {
+    if (!confirm("Revoke this management key? CI jobs using it will fail.")) return;
+    try {
+      await api.revokeManagementKey(projectId, keyId);
+      refetch();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Revoke failed");
+    }
+  }
+
+  const snippetCtx = { projectId, apiUrl: "https://your-flagforge-host.example.com" };
+
+  return (
+    <>
+      <section className="border border-border">
+        <div className="px-5 py-3 border-b border-border bg-bg-card flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <span className="font-mono text-[0.6rem] text-text-primary uppercase tracking-wider">
+              CI / Management Keys
+            </span>
+            <p className="font-mono text-[0.5rem] text-text-muted mt-1 max-w-xl">
+              Project-scoped mgmt_ keys for CI (code-ref scanning). Header:{" "}
+              <code className="text-text-secondary">Authorization: mgmt_...</code> (no Bearer).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowCreate(true);
+              setCreatedRawKey(null);
+            }}
+            className="font-mono text-[0.55rem] uppercase tracking-wider px-4 py-2 bg-accent-red text-white hover:bg-accent-red-hover transition-colors"
+          >
+            Generate Key
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          {loading ? (
+            <p className="font-mono text-[0.55rem] text-text-muted">Loading keys…</p>
+          ) : active.length === 0 ? (
+            <p className="font-mono text-[0.55rem] text-text-muted">
+              No management keys yet. Create one for your CI scanner.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {active.map((k) => (
+                <div
+                  key={k.id}
+                  className="flex items-center justify-between gap-3 border border-border px-3 py-2 bg-bg-card flex-wrap"
+                >
+                  <div>
+                    <div className="font-mono text-[0.6rem] text-text-primary">{k.name}</div>
+                    <div className="font-mono text-[0.5rem] text-text-muted">
+                      {k.key_prefix}… · last used{" "}
+                      {k.last_used_at ? new Date(k.last_used_at).toLocaleString() : "never"}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRevoke(k.id)}
+                    className="font-mono text-[0.45rem] uppercase tracking-wider text-text-muted hover:text-accent-red border border-border px-2 py-1"
+                  >
+                    Revoke
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {revoked.length > 0 && (
+            <p className="font-mono text-[0.5rem] text-text-muted">
+              {revoked.length} revoked key(s)
+            </p>
+          )}
+
+          <div className="space-y-3 pt-2">
+            <CodeSnippet
+              title="Environment variables"
+              description="Use with scripts/scan-flag-refs.sh in your app repo or CI."
+              code={buildScanScriptEnv(snippetCtx)}
+            />
+            <CodeSnippet title="Run scanner" code={buildScanCommand()} />
+            <CodeSnippet title="GitHub Actions secrets" code={buildGithubSecretsList()} />
+          </div>
+        </div>
+      </section>
+
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Generate Management Key">
+        {createdRawKey ? (
+          <div className="space-y-4">
+            <p className="font-mono text-[0.55rem] text-yellow-400">
+              Copy this key now — it won&apos;t be shown again.
+            </p>
+            <pre className="bg-bg-primary border border-border p-3 font-mono text-[0.55rem] text-text-primary break-all whitespace-pre-wrap">
+              {createdRawKey}
+            </pre>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(createdRawKey)}
+              className="w-full font-mono text-[0.55rem] uppercase tracking-wider py-2 border border-border text-text-muted hover:text-text-primary"
+            >
+              Copy to clipboard
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(false)}
+              className="w-full font-mono text-[0.55rem] uppercase tracking-wider py-2.5 bg-accent-red text-white"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="font-mono text-[0.5rem] text-text-muted uppercase tracking-[0.16em] mb-1.5 block">
+                Key name
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="github-actions-scan"
+                className="w-full bg-bg-card border border-border px-3 py-2 font-mono text-[0.65rem] outline-none focus:border-accent-red/50"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={creating || !name.trim()}
+              className="w-full font-mono text-[0.55rem] uppercase tracking-wider py-2.5 bg-accent-red text-white disabled:opacity-50"
+            >
+              {creating ? "Creating…" : "Create key"}
+            </button>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }

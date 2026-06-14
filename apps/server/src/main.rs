@@ -20,7 +20,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 use axum::http::Request;
 
 use crate::api::middleware::audit::audit_context_middleware;
-use crate::api::middleware::auth::{require_auth, require_sdk_key};
+use crate::api::middleware::auth::{require_auth, require_project_scope, require_sdk_key};
 use crate::api::routes::*;
 use crate::auth::jwt::JwksCache;
 use crate::broadcaster::{Broadcaster, ConfigChangeEvent};
@@ -135,6 +135,7 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/projects/{project_id}",
             management_routes()
                 .layer(axum_mw::from_fn(audit_context_middleware))
+                .layer(axum_mw::from_fn(require_project_scope))
                 .layer(axum_mw::from_fn_with_state(state.clone(), require_auth)),
         )
         // Evaluation API (SDK key auth)
@@ -230,6 +231,10 @@ fn management_routes() -> Router<AppState> {
         )
         .route("/flags/{flag_key}/toggle", patch(flags::toggle_flag))
         .route("/flags/{flag_key}/variants", put(flags::update_flag_variants))
+        .route(
+            "/flags/{flag_key}/lifecycle",
+            patch(flags::update_flag_lifecycle),
+        )
         // Targeting rules
         .route(
             "/flags/{flag_key}/environments/{environment_id}/rules",
@@ -248,6 +253,13 @@ fn management_routes() -> Router<AppState> {
             "/flags/{flag_key}/environments/{environment_id}/overrides/{targeting_key}",
             delete(rules::delete_override),
         )
+        // Code references (lifecycle)
+        .route(
+            "/flags/{flag_key}/code-refs",
+            post(lifecycle::ingest_code_refs).get(lifecycle::get_code_refs),
+        )
+        // Stale-flag query (lifecycle)
+        .route("/lifecycle/stale", get(lifecycle::get_stale_flags))
         .route(
             "/segments",
             post(segments::create_segment).get(segments::list_segments),
@@ -263,6 +275,15 @@ fn management_routes() -> Router<AppState> {
         )
         .route("/sdk-connections", get(sdk_keys::sdk_connections))
         .route("/sdk-keys/{key_id}/revoke", post(sdk_keys::revoke_sdk_key))
+        .route(
+            "/management-keys",
+            get(management_keys::list_management_keys)
+                .post(management_keys::create_management_key),
+        )
+        .route(
+            "/management-keys/{key_id}/revoke",
+            post(management_keys::revoke_management_key),
+        )
         .route("/audit-log", get(audit_log::list_audit_log))
 }
 

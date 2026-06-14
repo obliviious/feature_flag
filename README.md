@@ -44,6 +44,8 @@ Open-source feature flag platform with a Rust API server, Next.js dashboard, and
 - **Redis caching** — MessagePack flag config, SDK auth cache, rate limiting, connection heartbeats
 - **Resilience** — Redis circuit breaker and in-process config snapshot when cache is unavailable
 - **Audit log** — enriched entries (actor, IP, diffs, severity) for management actions
+- **Flag lifecycle** — stale-flag detection, ownership, code-reference tracking, guided cleanup dashboard
+- **Management API keys** — project-scoped `mgmt_` keys for CI/automation (code-ref scanning, deploy scripts)
 - **Clerk authentication** for dashboard users (JWT verified via JWKS)
 
 ## Prerequisites
@@ -158,7 +160,7 @@ feature_flag/
 | `GET` | `/health` | Health check |
 | `POST` | `/api/v1/setup` | Initial org/project bootstrap |
 
-### Management (Clerk JWT — `Authorization: Bearer <token>`)
+### Management (Clerk JWT or `mgmt_` key)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -169,8 +171,24 @@ feature_flag/
 | `GET/POST` | `/api/v1/projects/{id}/environments` | Environments |
 | `GET/POST` | `/api/v1/projects/{id}/sdk-keys` | SDK keys |
 | `POST` | `/api/v1/projects/{id}/sdk-keys/{id}/revoke` | Revoke key |
+| `GET/POST` | `/api/v1/projects/{id}/management-keys` | CI management keys |
 | `GET` | `/api/v1/projects/{id}/sdk-connections` | Active SDK connections |
 | `GET` | `/api/v1/projects/{id}/audit-log` | Audit log (filterable) |
+| `GET` | `/api/v1/projects/{id}/lifecycle/stale` | Stale flags |
+| `POST/GET` | `/api/v1/projects/{id}/flags/{key}/code-refs` | Code reference ingest / list |
+
+Auth: `Authorization: Bearer <clerk-jwt>` (dashboard) or `Authorization: mgmt_...` (CI, no Bearer prefix).
+
+### CI code-reference scanning
+
+```bash
+export FLAGFORGE_API=http://localhost:8080
+export FLAGFORGE_PROJECT_ID=your-project-uuid
+export FLAGFORGE_MGMT_KEY=mgmt_...   # Settings → CI / Management Keys
+./scripts/scan-flag-refs.sh
+```
+
+Example GitHub Actions workflow: `deploy/github-actions-scan-flag-refs.example.yml`
 
 ### Evaluation (SDK key — `Authorization: srv_...` or `cli_...`)
 

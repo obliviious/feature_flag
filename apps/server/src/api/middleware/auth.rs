@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Request, State},
+    extract::{Extension, Path, Request, State},
     http::{header, StatusCode},
     middleware::Next,
     response::Response,
@@ -27,6 +27,12 @@ pub enum AuthInfo {
         project_id: Uuid,
         key_type: String, // "server" or "client"
     },
+    /// Project-scoped management key for CI/CD (`mgmt_` prefix).
+    ManagementKey {
+        key_id: Uuid,
+        project_id: Uuid,
+        name: String,
+    },
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -35,6 +41,28 @@ struct SdkKeyAuthRow {
     environment_id: Uuid,
     project_id: Uuid,
     key_type: String,
+}
+
+async fn resolve_management_auth(state: &AppState, auth_header: &str) -> Result<AuthInfo, StatusCode> {
+    let key_hash = api_keys::hash_key(auth_header);
+    let row = state
+        .store
+        .resolve_management_api_key(&key_hash)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    let store = state.store.clone();
+    let key_id = row.id;
+    tokio::spawn(async move {
+        let _ = store.update_management_api_key_last_used(key_id).await;
+    });
+
+    Ok(AuthInfo::ManagementKey {
+        key_id: row.id,
+        project_id: row.project_id,
+        name: row.name,
+    })
 }
 
 async fn resolve_sdk_auth(state: &AppState, auth_header: &str) -> Result<AuthInfo, StatusCode> {
@@ -212,6 +240,8 @@ pub async fn require_auth(
             email: claims.email,
             org_id: claims.org_id,
         }
+    } else if auth_header.starts_with("mgmt_") {
+        resolve_management_auth(&state, auth_header).await?
     } else if auth_header.starts_with("srv_") || auth_header.starts_with("cli_") {
         resolve_sdk_auth(&state, auth_header).await?
     } else {
@@ -220,6 +250,32 @@ pub async fn require_auth(
 
     req.extensions_mut().insert(auth_info);
     Ok(next.run(req).await)
+}
+
+/// Ensures management API keys can only access their own project.
+pub async fn require_project_scope(
+    Extension(auth): Extension<AuthInfo>,
+    Path(project_id): Path<Uuid>,
+    req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    if let AuthInfo::ManagementKey {
+        project_id: allowed, ..
+    } = &auth
+    {
+        if *allowed != project_id {
+            return Err(StatusCode::FORBIDDEN);
+        }
+    }
+    Ok(next.run(req).await)
+}
+
+/// Management key mutations require a human dashboard session (Clerk JWT).
+pub fn require_dashboard_user(auth: &AuthInfo) -> Result<(), StatusCode> {
+    match auth {
+        AuthInfo::Jwt { .. } => Ok(()),
+        _ => Err(StatusCode::FORBIDDEN),
+    }
 }
 
 /// Middleware: require SDK key authentication only.

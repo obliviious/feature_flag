@@ -68,6 +68,17 @@ const navigation: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        label: "Lifecycle",
+        href: "/dashboard/lifecycle",
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M8 4.5V8l2.5 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+            <path d="M3 2.5L1.5 1M13 2.5L14.5 1" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round" />
+          </svg>
+        ),
+      },
     ],
   },
   {

@@ -38,6 +38,19 @@ pub async fn audit_context_middleware(mut req: Request, next: Next) -> Response 
             user_agent,
             request_id: Uuid::new_v4(),
         },
+        Some(AuthInfo::ManagementKey {
+            key_id,
+            name,
+            ..
+        }) => AuditContext {
+            actor_id: Some(*key_id),
+            actor_email: None,
+            actor_name: Some(format!("mgmt:{name}")),
+            actor_type: ActorType::System,
+            ip_address: extract_ip(&req),
+            user_agent,
+            request_id: Uuid::new_v4(),
+        },
         None => AuditContext {
             actor_id: None,
             actor_email: None,

@@ -47,6 +47,8 @@ export interface FlagEnvironmentState {
   enabled: boolean;
 }
 
+export type FlagLifecycleStatus = "active" | "deprecated" | "scheduled_cleanup";
+
 export interface Flag {
   id: string;
   key: string;
@@ -55,10 +57,61 @@ export interface Flag {
   flag_type: string;
   tags: string[];
   archived: boolean;
+  owner_email: string | null;
+  owner_name: string | null;
+  lifecycle_status: FlagLifecycleStatus;
+  stale_threshold_days: number | null;
   variants: FlagVariant[];
   environments: FlagEnvironmentState[];
   created_at: string;
   updated_at: string;
+}
+
+export interface StaleFlagSummary {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  flag_type: string;
+  owner_email: string | null;
+  owner_name: string | null;
+  lifecycle_status: FlagLifecycleStatus;
+  stale_threshold_days: number | null;
+  created_at: string;
+  last_activity_at: string | null;
+  staleness_days: number;
+  code_ref_count: number;
+}
+
+export interface CodeReference {
+  id: string;
+  flag_id: string;
+  repo: string | null;
+  branch: string | null;
+  commit_sha: string | null;
+  file_path: string;
+  line_number: number | null;
+  snippet: string | null;
+  scanned_at: string;
+}
+
+export interface UpdateFlagLifecycleBody {
+  owner_email?: string | null;
+  owner_name?: string | null;
+  lifecycle_status?: FlagLifecycleStatus;
+  stale_threshold_days?: number | null;
+}
+
+export interface IngestCodeRefsBody {
+  branch?: string;
+  refs: Array<{
+    repo?: string;
+    branch?: string;
+    commit_sha?: string;
+    file_path: string;
+    line_number?: number;
+    snippet?: string;
+  }>;
 }
 
 export interface Segment {
@@ -90,7 +143,17 @@ export interface SdkKey {
   revoked_at: string | null;
 }
 
-export interface CreateSdkKeyResponse extends SdkKey {
+export interface ManagementApiKey {
+  id: string;
+  project_id: string;
+  name: string;
+  key_prefix: string;
+  last_used_at: string | null;
+  created_at: string;
+  revoked_at: string | null;
+}
+
+export interface CreateManagementApiKeyResponse extends ManagementApiKey {
   raw_key: string;
 }
 
@@ -227,6 +290,9 @@ export const AUDIT_ACTIONS = [
   "flag_updated",
   "flag_deleted",
   "flag_toggled",
+  "flag_lifecycle_updated",
+  "management_key_created",
+  "management_key_revoked",
   "segment_created",
   "environment_created",
   "sdk_key_created",
@@ -380,6 +446,33 @@ export function createApi(getToken: GetToken) {
         method: "DELETE",
       }),
 
+    // Lifecycle management
+    getStaleFlags: (projectId: string, thresholdDays?: number) =>
+      request<StaleFlagSummary[]>(
+        getToken,
+        `${base(projectId)}/lifecycle/stale${thresholdDays !== undefined ? `?threshold_days=${thresholdDays}` : ""}`
+      ),
+
+    updateFlagLifecycle: (projectId: string, flagKey: string, data: UpdateFlagLifecycleBody) =>
+      request<Flag>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/lifecycle`,
+        { method: "PATCH", body: JSON.stringify(data) }
+      ),
+
+    getCodeRefs: (projectId: string, flagKey: string) =>
+      request<CodeReference[]>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/code-refs`
+      ),
+
+    ingestCodeRefs: (projectId: string, flagKey: string, data: IngestCodeRefsBody) =>
+      request<{ flag_key: string; refs_ingested: number; branch: string | null }>(
+        getToken,
+        `${base(projectId)}/flags/${encodeURIComponent(flagKey)}/code-refs`,
+        { method: "POST", body: JSON.stringify(data) }
+      ),
+
     // Environments
     listEnvironments: (projectId: string) =>
       request<Environment[]>(getToken, `${base(projectId)}/environments`),
@@ -432,6 +525,23 @@ export function createApi(getToken: GetToken) {
       request<SdkKey>(getToken, `${base(projectId)}/sdk-keys/${keyId}/revoke`, {
         method: "POST",
       }),
+
+    // Management API keys (CI / automation)
+    listManagementKeys: (projectId: string) =>
+      request<ManagementApiKey[]>(getToken, `${base(projectId)}/management-keys`),
+
+    createManagementKey: (projectId: string, data: { name: string }) =>
+      request<CreateManagementApiKeyResponse>(getToken, `${base(projectId)}/management-keys`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    revokeManagementKey: (projectId: string, keyId: string) =>
+      request<ManagementApiKey>(
+        getToken,
+        `${base(projectId)}/management-keys/${keyId}/revoke`,
+        { method: "POST" }
+      ),
 
     listSdkConnections: (projectId: string, activeWindowSecs = 60) =>
       request<SdkConnectionsResponse>(

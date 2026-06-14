@@ -1,0 +1,34 @@
+# Example GitHub Actions workflow for FlagForge code-reference scanning.
+# Copy to your application repo as .github/workflows/flagforge-scan-refs.yml
+# (or run from this repo if your app source lives in the same checkout).
+
+name: FlagForge code reference scan
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # weekly Monday 06:00 UTC
+
+jobs:
+  scan-flag-refs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ripgrep and jq
+        run: sudo apt-get update && sudo apt-get install -y ripgrep jq
+
+      - name: Scan repo and push code refs to FlagForge
+        env:
+          FLAGFORGE_API: ${{ secrets.FLAGFORGE_API_URL }}
+          FLAGFORGE_PROJECT_ID: ${{ secrets.FLAGFORGE_PROJECT_ID }}
+          FLAGFORGE_MGMT_KEY: ${{ secrets.FLAGFORGE_MGMT_KEY }}
+          FLAGFORGE_BRANCH: ${{ github.ref_name }}
+          FLAGFORGE_COMMIT_SHA: ${{ github.sha }}
+          FLAGFORGE_REPO: ${{ github.repository }}
+        run: |
+          # If FlagForge lives in a separate repo, clone the script:
+          # curl -fsSL https://raw.githubusercontent.com/you/flagforge/main/scripts/scan-flag-refs.sh -o scan-flag-refs.sh
+          # chmod +x scan-flag-refs.sh && ./scan-flag-refs.sh
+          bash scripts/scan-flag-refs.sh

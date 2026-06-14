@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::Deserialize;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 use std::str::FromStr;
@@ -8,14 +9,28 @@ use crate::audit::AuditContext;
 use super::models::*;
 use eval_core::types as eval;
 
+/// Input for a single code reference (used by `upsert_code_references`).
+#[derive(Debug, Deserialize)]
+pub struct CodeRefInput {
+    pub repo: Option<String>,
+    pub branch: Option<String>,
+    pub commit_sha: Option<String>,
+    pub file_path: String,
+    pub line_number: Option<i32>,
+    pub snippet: Option<String>,
+}
+
 const FLAG_COLS: &str =
-    "id, project_id, key, name, description, flag_type, tags, archived, created_at, updated_at";
+    "id, project_id, key, name, description, flag_type, tags, archived, \
+     owner_email, owner_name, lifecycle_status, stale_threshold_days, created_at, updated_at";
 const SEGMENT_COLS: &str =
     "id, project_id, key, name, description, match_type, created_at, updated_at";
 const CONSTRAINT_COLS: &str =
     r#"id, segment_id, attribute, operator, "values", sort_order, created_at"#;
 const SDK_KEY_COLS: &str =
     "id, environment_id, name, key_type, key_hash, key_prefix, last_used_at, created_at, revoked_at";
+const MGMT_KEY_COLS: &str =
+    "id, project_id, name, key_hash, key_prefix, last_used_at, created_at, revoked_at";
 
 /// SQLite store for all FlagForge data.
 #[derive(Clone)]
@@ -726,6 +741,87 @@ impl SqliteStore {
         Ok(row)
     }
 
+    // ============================================================
+    // Management API keys (CI / automation)
+    // ============================================================
+
+    pub async fn create_management_api_key(
+        &self,
+        project_id: Uuid,
+        name: &str,
+        key_hash: &str,
+        key_prefix: &str,
+    ) -> Result<ManagementApiKeyRow> {
+        let id = Uuid::new_v4();
+        let row = sqlx::query_as::<_, ManagementApiKeyRow>(
+            &format!(
+                "INSERT INTO management_api_keys (id, project_id, name, key_hash, key_prefix)
+                 VALUES (?, ?, ?, ?, ?) RETURNING {MGMT_KEY_COLS}"
+            ),
+        )
+        .bind(id)
+        .bind(project_id)
+        .bind(name)
+        .bind(key_hash)
+        .bind(key_prefix)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn list_management_api_keys(
+        &self,
+        project_id: Uuid,
+    ) -> Result<Vec<ManagementApiKeyRow>> {
+        let rows = sqlx::query_as::<_, ManagementApiKeyRow>(
+            &format!(
+                "SELECT {MGMT_KEY_COLS} FROM management_api_keys
+                 WHERE project_id = ? ORDER BY created_at DESC"
+            ),
+        )
+        .bind(project_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    pub async fn revoke_management_api_key(&self, key_id: Uuid) -> Result<ManagementApiKeyRow> {
+        let row = sqlx::query_as::<_, ManagementApiKeyRow>(
+            &format!(
+                "UPDATE management_api_keys SET revoked_at = datetime('now')
+                 WHERE id = ? RETURNING {MGMT_KEY_COLS}"
+            ),
+        )
+        .bind(key_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn resolve_management_api_key(
+        &self,
+        key_hash: &str,
+    ) -> Result<Option<ManagementApiKeyRow>> {
+        let row = sqlx::query_as::<_, ManagementApiKeyRow>(
+            &format!(
+                "SELECT {MGMT_KEY_COLS} FROM management_api_keys
+                 WHERE key_hash = ? AND revoked_at IS NULL"
+            ),
+        )
+        .bind(key_hash)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn update_management_api_key_last_used(&self, key_id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE management_api_keys SET last_used_at = datetime('now') WHERE id = ?")
+            .bind(key_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub async fn list_all_projects(&self) -> Result<Vec<ProjectRow>> {
         let rows = sqlx::query_as::<_, ProjectRow>(
             "SELECT * FROM projects ORDER BY created_at DESC",
@@ -977,6 +1073,146 @@ impl SqliteStore {
             )
         })?;
         Ok(row)
+    }
+
+    // ============================================================
+    // Lifecycle / tech-debt management
+    // ============================================================
+
+    pub async fn update_flag_lifecycle(
+        &self,
+        flag_id: Uuid,
+        owner_email: Option<&str>,
+        owner_name: Option<&str>,
+        lifecycle_status: Option<&str>,
+        stale_threshold_days: Option<i32>,
+    ) -> Result<FlagRow> {
+        let row = sqlx::query_as::<_, FlagRow>(
+            &format!(
+                "UPDATE flags SET
+                    owner_email          = COALESCE(?, owner_email),
+                    owner_name           = COALESCE(?, owner_name),
+                    lifecycle_status     = COALESCE(?, lifecycle_status),
+                    stale_threshold_days = COALESCE(?, stale_threshold_days)
+                 WHERE id = ?
+                 RETURNING {FLAG_COLS}"
+            ),
+        )
+        .bind(owner_email)
+        .bind(owner_name)
+        .bind(lifecycle_status)
+        .bind(stale_threshold_days)
+        .bind(flag_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    /// Returns flags that haven't been meaningfully changed in `default_threshold_days` days,
+    /// are not archived, are not already in `scheduled_cleanup`, and are enabled in at least
+    /// one environment. Ordered most-stale first.
+    pub async fn get_stale_flags(
+        &self,
+        project_id: Uuid,
+        default_threshold_days: i64,
+    ) -> Result<Vec<StaleFlagRow>> {
+        let rows = sqlx::query_as::<_, StaleFlagRow>(
+            "SELECT * FROM (
+                SELECT
+                    f.id, f.project_id, f.key, f.name, f.description, f.flag_type,
+                    f.tags, f.owner_email, f.owner_name, f.lifecycle_status,
+                    f.stale_threshold_days, f.created_at,
+                    MAX(al.created_at) AS last_activity_at,
+                    CAST(
+                        julianday('now') -
+                        julianday(COALESCE(MAX(al.created_at), f.created_at))
+                        AS INTEGER
+                    ) AS staleness_days,
+                    (SELECT COUNT(*) FROM flag_code_references cr
+                     WHERE cr.flag_id = f.id) AS code_ref_count
+                FROM flags f
+                LEFT JOIN audit_log al
+                    ON  al.entity_id = f.id
+                    AND al.action IN (
+                        'flag_updated', 'flag_toggled',
+                        'rule_created', 'rule_updated', 'rule_deleted',
+                        'override_upserted', 'override_deleted'
+                    )
+                WHERE f.project_id = ?
+                  AND f.archived = 0
+                  AND f.lifecycle_status != 'scheduled_cleanup'
+                  AND EXISTS (
+                      SELECT 1 FROM flag_environments fe
+                      WHERE fe.flag_id = f.id AND fe.enabled = 1
+                  )
+                GROUP BY f.id
+            ) stale
+            WHERE staleness_days > COALESCE(stale_threshold_days, ?)
+            ORDER BY staleness_days DESC",
+        )
+        .bind(project_id)
+        .bind(default_threshold_days)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// Idempotently replaces all code references for a flag+branch pair.
+    pub async fn upsert_code_references(
+        &self,
+        flag_id: Uuid,
+        project_id: Uuid,
+        branch: Option<&str>,
+        refs: &[CodeRefInput],
+    ) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+
+        // Remove previous refs for this flag+branch so this call is idempotent.
+        sqlx::query(
+            "DELETE FROM flag_code_references WHERE flag_id = ? AND (branch = ? OR (branch IS NULL AND ? IS NULL))",
+        )
+        .bind(flag_id)
+        .bind(branch)
+        .bind(branch)
+        .execute(&mut *tx)
+        .await?;
+
+        for r in refs {
+            let id = Uuid::new_v4();
+            sqlx::query(
+                "INSERT INTO flag_code_references
+                    (id, flag_id, project_id, repo, branch, commit_sha, file_path, line_number, snippet)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(id)
+            .bind(flag_id)
+            .bind(project_id)
+            .bind(r.repo.as_deref())
+            .bind(r.branch.as_deref())
+            .bind(r.commit_sha.as_deref())
+            .bind(&r.file_path)
+            .bind(r.line_number)
+            .bind(r.snippet.as_deref())
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn get_code_references(&self, flag_id: Uuid) -> Result<Vec<CodeReferenceRow>> {
+        let rows = sqlx::query_as::<_, CodeReferenceRow>(
+            "SELECT id, flag_id, project_id, repo, branch, commit_sha,
+                    file_path, line_number, snippet, scanned_at
+             FROM flag_code_references
+             WHERE flag_id = ?
+             ORDER BY file_path, line_number",
+        )
+        .bind(flag_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
     }
 
     pub async fn list_audit_log(

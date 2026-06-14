@@ -196,6 +196,54 @@ export interface AuditLogEntry {
 }
 
 // ============================================================
+// Flag Lifecycle Types
+// ============================================================
+
+export type FlagLifecycleStatus = "active" | "deprecated" | "scheduled_cleanup";
+
+export interface FlagOwnership {
+  ownerEmail?: string;
+  ownerName?: string;
+  lifecycleStatus: FlagLifecycleStatus;
+  staleThresholdDays?: number;
+}
+
+export interface CodeReference {
+  id: string;
+  flagId: string;
+  repo?: string;
+  branch?: string;
+  commitSha?: string;
+  filePath: string;
+  lineNumber?: number;
+  snippet?: string;
+  scannedAt: string;
+}
+
+export interface StaleFlagSummary {
+  id: string;
+  key: string;
+  name: string;
+  description?: string;
+  flagType: string;
+  ownerEmail?: string;
+  ownerName?: string;
+  lifecycleStatus: FlagLifecycleStatus;
+  staleThresholdDays?: number;
+  createdAt: string;
+  lastActivityAt?: string;
+  stalenessDays: number;
+  codeRefCount: number;
+}
+
+export interface UpdateFlagLifecycleRequest {
+  ownerEmail?: string;
+  ownerName?: string;
+  lifecycleStatus?: FlagLifecycleStatus;
+  staleThresholdDays?: number;
+}
+
+// ============================================================
 // SDK Key Types
 // ============================================================
 

@@ -74,10 +74,22 @@ pub struct FlagResponse {
     pub flag_type: String,
     pub tags: Vec<String>,
     pub archived: bool,
+    pub owner_email: Option<String>,
+    pub owner_name: Option<String>,
+    pub lifecycle_status: String,
+    pub stale_threshold_days: Option<i32>,
     pub variants: Vec<VariantResponse>,
     pub environments: Vec<FlagEnvironmentState>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateFlagLifecycleRequest {
+    pub owner_email: Option<String>,
+    pub owner_name: Option<String>,
+    pub lifecycle_status: Option<String>,
+    pub stale_threshold_days: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -283,6 +295,10 @@ pub async fn create_flag(
             flag_type: flag.flag_type,
             tags: flag.tags,
             archived: flag.archived,
+            owner_email: flag.owner_email,
+            owner_name: flag.owner_name,
+            lifecycle_status: flag.lifecycle_status,
+            stale_threshold_days: flag.stale_threshold_days,
             variants: variant_responses,
             environments: env_states,
             created_at: flag.created_at.to_rfc3339(),
@@ -320,6 +336,10 @@ pub async fn list_flags(
             flag_type: flag.flag_type,
             tags: flag.tags,
             archived: flag.archived,
+            owner_email: flag.owner_email,
+            owner_name: flag.owner_name,
+            lifecycle_status: flag.lifecycle_status,
+            stale_threshold_days: flag.stale_threshold_days,
             variants: variants
                 .into_iter()
                 .map(|v| VariantResponse {
@@ -366,6 +386,10 @@ pub async fn get_flag(
         flag_type: flag.flag_type,
         tags: flag.tags,
         archived: flag.archived,
+        owner_email: flag.owner_email,
+        owner_name: flag.owner_name,
+        lifecycle_status: flag.lifecycle_status,
+        stale_threshold_days: flag.stale_threshold_days,
         variants: variants
             .into_iter()
             .map(|v| VariantResponse {
@@ -450,6 +474,10 @@ pub async fn update_flag(
         flag_type: updated.flag_type,
         tags: updated.tags,
         archived: updated.archived,
+        owner_email: updated.owner_email,
+        owner_name: updated.owner_name,
+        lifecycle_status: updated.lifecycle_status,
+        stale_threshold_days: updated.stale_threshold_days,
         variants: variants
             .into_iter()
             .map(|v| VariantResponse {
@@ -550,6 +578,10 @@ pub async fn update_flag_variants(
         flag_type: flag.flag_type,
         tags: flag.tags,
         archived: flag.archived,
+        owner_email: flag.owner_email,
+        owner_name: flag.owner_name,
+        lifecycle_status: flag.lifecycle_status,
+        stale_threshold_days: flag.stale_threshold_days,
         variants: after_variants
             .into_iter()
             .map(|v| VariantResponse {
@@ -683,4 +715,107 @@ pub async fn toggle_flag(
         "environment_id": req.environment_id,
         "enabled": fe.enabled,
     })))
+}
+
+pub async fn update_flag_lifecycle(
+    State(state): State<AppState>,
+    Path((project_id, flag_key)): Path<(Uuid, String)>,
+    Extension(_auth): Extension<AuthInfo>,
+    Extension(audit_ctx): Extension<AuditContext>,
+    Json(req): Json<UpdateFlagLifecycleRequest>,
+) -> Result<Json<FlagResponse>, ApiError> {
+    let flag = state
+        .store
+        .get_flag_by_key(project_id, &flag_key)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?
+        .ok_or_else(|| err(StatusCode::NOT_FOUND, "Flag not found"))?;
+
+    if let Some(ref status) = req.lifecycle_status {
+        if !["active", "deprecated", "scheduled_cleanup"].contains(&status.as_str()) {
+            return Err(err(
+                StatusCode::BAD_REQUEST,
+                "lifecycle_status must be one of: active, deprecated, scheduled_cleanup",
+            ));
+        }
+    }
+
+    let before_state = serde_json::json!({
+        "owner_email": flag.owner_email,
+        "owner_name": flag.owner_name,
+        "lifecycle_status": flag.lifecycle_status,
+        "stale_threshold_days": flag.stale_threshold_days,
+    });
+
+    let updated = state
+        .store
+        .update_flag_lifecycle(
+            flag.id,
+            req.owner_email.as_deref(),
+            req.owner_name.as_deref(),
+            req.lifecycle_status.as_deref(),
+            req.stale_threshold_days,
+        )
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+
+    let after_state = serde_json::json!({
+        "owner_email": updated.owner_email,
+        "owner_name": updated.owner_name,
+        "lifecycle_status": updated.lifecycle_status,
+        "stale_threshold_days": updated.stale_threshold_days,
+    });
+    let diff = compute_diff(&before_state, &after_state);
+    let _ = state
+        .store
+        .create_audit_log_enriched(
+            project_id,
+            &audit_ctx,
+            AuditAction::FlagLifecycleUpdated.as_str(),
+            "flag",
+            Some(updated.id),
+            Some(&before_state),
+            Some(&after_state),
+            Some(&diff),
+            None,
+            Some(AuditAction::FlagLifecycleUpdated.severity().as_str()),
+            None,
+            None,
+            None,
+        )
+        .await;
+
+    let variants = state
+        .store
+        .get_flag_variants(updated.id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+
+    let env_states = build_env_states(&state, updated.id, project_id).await?;
+
+    Ok(Json(FlagResponse {
+        id: updated.id.to_string(),
+        key: updated.key,
+        name: updated.name,
+        description: updated.description,
+        flag_type: updated.flag_type,
+        tags: updated.tags,
+        archived: updated.archived,
+        owner_email: updated.owner_email,
+        owner_name: updated.owner_name,
+        lifecycle_status: updated.lifecycle_status,
+        stale_threshold_days: updated.stale_threshold_days,
+        variants: variants
+            .into_iter()
+            .map(|v| VariantResponse {
+                id: v.id.to_string(),
+                key: v.key,
+                value: v.value,
+                description: v.description,
+            })
+            .collect(),
+        environments: env_states,
+        created_at: updated.created_at.to_rfc3339(),
+        updated_at: updated.updated_at.to_rfc3339(),
+    }))
 }

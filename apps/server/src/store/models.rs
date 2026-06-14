@@ -50,8 +50,47 @@ pub struct FlagRow {
     #[sqlx(json)]
     pub tags: Vec<String>,
     pub archived: bool,
+    pub owner_email: Option<String>,
+    pub owner_name: Option<String>,
+    pub lifecycle_status: String,
+    pub stale_threshold_days: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, FromRow, Serialize, Deserialize)]
+pub struct CodeReferenceRow {
+    pub id: Uuid,
+    pub flag_id: Uuid,
+    pub project_id: Uuid,
+    pub repo: Option<String>,
+    pub branch: Option<String>,
+    pub commit_sha: Option<String>,
+    pub file_path: String,
+    pub line_number: Option<i32>,
+    pub snippet: Option<String>,
+    pub scanned_at: DateTime<Utc>,
+}
+
+/// Returned by the stale-flags query; includes computed staleness metadata.
+#[derive(Debug, FromRow, Serialize, Deserialize)]
+pub struct StaleFlagRow {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub key: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub flag_type: String,
+    #[sqlx(json)]
+    pub tags: Vec<String>,
+    pub owner_email: Option<String>,
+    pub owner_name: Option<String>,
+    pub lifecycle_status: String,
+    pub stale_threshold_days: Option<i32>,
+    pub created_at: DateTime<Utc>,
+    pub last_activity_at: Option<DateTime<Utc>>,
+    pub staleness_days: i64,
+    pub code_ref_count: i64,
 }
 
 #[derive(Debug, FromRow, Serialize, Deserialize)]
@@ -135,6 +174,18 @@ pub struct FlagOverrideRow {
     pub targeting_key: String,
     pub variant_id: Uuid,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, FromRow, Serialize, Deserialize)]
+pub struct ManagementApiKeyRow {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub name: String,
+    pub key_hash: String,
+    pub key_prefix: String,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, FromRow, Serialize, Deserialize)]

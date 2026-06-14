@@ -69,10 +69,13 @@ pub enum AuditAction {
     FlagUpdated,
     FlagDeleted,
     FlagToggled,
+    FlagLifecycleUpdated,
     SegmentCreated,
     EnvironmentCreated,
     SdkKeyCreated,
     SdkKeyRevoked,
+    ManagementKeyCreated,
+    ManagementKeyRevoked,
     ProjectCreated,
 }
 
@@ -83,17 +86,22 @@ impl AuditAction {
             Self::FlagUpdated => "flag_updated",
             Self::FlagDeleted => "flag_deleted",
             Self::FlagToggled => "flag_toggled",
+            Self::FlagLifecycleUpdated => "flag_lifecycle_updated",
             Self::SegmentCreated => "segment_created",
             Self::EnvironmentCreated => "environment_created",
             Self::SdkKeyCreated => "sdk_key_created",
             Self::SdkKeyRevoked => "sdk_key_revoked",
+            Self::ManagementKeyCreated => "management_key_created",
+            Self::ManagementKeyRevoked => "management_key_revoked",
             Self::ProjectCreated => "project_created",
         }
     }
 
     pub fn severity(&self) -> AuditSeverity {
         match self {
-            Self::SdkKeyRevoked | Self::FlagDeleted => AuditSeverity::Critical,
+            Self::SdkKeyRevoked | Self::FlagDeleted | Self::ManagementKeyRevoked => {
+                AuditSeverity::Critical
+            }
             Self::FlagToggled => AuditSeverity::Warning,
             _ => AuditSeverity::Info,
         }

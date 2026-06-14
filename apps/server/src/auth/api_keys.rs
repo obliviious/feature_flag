@@ -1,6 +1,11 @@
 use rand::Rng;
 use sha2::{Digest, Sha256};
 
+/// Generate a new management API key (`mgmt_` prefix) for CI/automation.
+pub fn generate_management_key() -> (String, String, String) {
+    generate_sdk_key("mgmt_")
+}
+
 /// Generate a new SDK key with the given prefix ("srv_" or "cli_").
 pub fn generate_sdk_key(prefix: &str) -> (String, String, String) {
     let random_bytes: Vec<u8> = (0..32).map(|_| rand::thread_rng().gen()).collect();

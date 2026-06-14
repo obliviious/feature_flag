@@ -68,12 +68,15 @@ const sidebar: NavItem[] = [
       { label: "Segments", slug: "api-segments" },
       { label: "Environments", slug: "api-environments" },
       { label: "SDK Keys", slug: "api-sdk-keys" },
+      { label: "Management Keys", slug: "management-api-keys" },
     ],
   },
   {
     label: "Guides",
     slug: "guides",
     children: [
+      { label: "Flag Lifecycle", slug: "flag-lifecycle" },
+      { label: "Code Reference Scanning", slug: "code-reference-scanning" },
       { label: "Progressive Rollouts", slug: "progressive-rollouts" },
       { label: "A/B Testing", slug: "ab-testing" },
       { label: "Kill Switches", slug: "kill-switches" },
@@ -807,22 +810,47 @@ function Component() {
     title: "Authentication",
     content: (
       <>
-        <p>FlagForge uses two authentication mechanisms:</p>
-        <h3>1. Clerk JWT (Management API)</h3>
+        <p>FlagForge uses three authentication mechanisms:</p>
+        <h3>1. Clerk JWT (Dashboard users)</h3>
         <p>
-          All management endpoints (<code>/api/v1/projects/*</code>) require
-          a Clerk-issued JWT in the <code>Authorization: Bearer</code>{" "}
-          header. The server validates tokens via Clerk&apos;s JWKS endpoint
-          (RS256).
+          Human users sign in via Clerk. Management endpoints accept{" "}
+          <code>Authorization: Bearer &lt;clerk-jwt&gt;</code>. The server
+          validates tokens via Clerk&apos;s JWKS endpoint (RS256).
         </p>
-        <h3>2. SDK Keys (Evaluation API)</h3>
+        <h3>2. Management API keys (CI / automation) — recommended</h3>
+        <p>
+          Project-scoped keys with the <code>mgmt_</code> prefix for pipelines,
+          scripts, and scanners. Create them in{" "}
+          <strong>Dashboard → Settings → CI / Management Keys</strong>.
+        </p>
+        <CodeBlock
+          lang="http"
+          code={`Authorization: mgmt_xxxxxxxxxxxxxxxx
+# No "Bearer" prefix — pass the raw key like SDK keys`}
+        />
+        <p>
+          Each key is bound to one project. Revoke anytime from Settings.
+          Use for code-reference scanning, flag toggles in deploy scripts, etc.
+        </p>
+        <h3>3. Clerk machine tokens (alternative)</h3>
+        <p>
+          If you already use{" "}
+          <a href="https://clerk.com/docs/machine-auth/overview" className="text-accent-red">
+            Clerk Machines / M2M
+          </a>
+          , you can mint a JWT and pass{" "}
+          <code>Authorization: Bearer &lt;token&gt;</code> instead of an{" "}
+          <code>mgmt_</code> key. This requires Clerk M2M setup in your Clerk
+          dashboard and is optional for self-hosted FlagForge.
+        </p>
+        <h3>4. SDK Keys (Evaluation API)</h3>
         <p>
           Evaluation endpoints use SDK keys passed directly in the{" "}
           <code>Authorization</code> header (no &quot;Bearer&quot; prefix).
         </p>
         <ul>
-          <li><code>srv_*</code> — server-side keys (full access)</li>
-          <li><code>cli_*</code> — client-side keys (read-only, safe for browsers)</li>
+          <li><code>srv_*</code> — server-side keys (full config + local eval)</li>
+          <li><code>cli_*</code> — client-side keys (remote eval only)</li>
         </ul>
       </>
     ),
@@ -1009,19 +1037,185 @@ curl -X PATCH \\
     content: (
       <>
         <p>
-          Integrate FlagForge into your CI/CD pipeline to automate flag
-          management during deployments.
+          Integrate FlagForge into CI/CD for automated flag management and
+          code-reference scanning.
+        </p>
+        <h3>Management key setup</h3>
+        <ol>
+          <li>Open <strong>Dashboard → Settings → CI / Management Keys</strong></li>
+          <li>Generate a key (shown once) and store it as <code>FLAGFORGE_MGMT_KEY</code></li>
+          <li>Add <code>FLAGFORGE_API_URL</code> and <code>FLAGFORGE_PROJECT_ID</code> secrets</li>
+        </ol>
+        <h3>Code reference scanning</h3>
+        <p>
+          Run <code>scripts/scan-flag-refs.sh</code> from this repo on every push
+          to keep the Lifecycle dashboard in sync with your codebase.
         </p>
         <CodeBlock
+          lang="bash"
+          code={`export FLAGFORGE_API=https://flags.example.com
+export FLAGFORGE_PROJECT_ID=your-project-uuid
+export FLAGFORGE_MGMT_KEY=mgmt_...
+./scripts/scan-flag-refs.sh`}
+        />
+        <p>
+          See <strong>Guides → Code Reference Scanning</strong> and{" "}
+          <code>deploy/github-actions-scan-flag-refs.example.yml</code> for a full
+          GitHub Actions workflow.
+        </p>
+        <h3>Toggle flags on deploy</h3>
+        <CodeBlock
           lang="yaml"
-          code={`# GitHub Actions example
+          code={`# GitHub Actions — enable flag in staging after deploy
 - name: Enable feature flag in staging
+  env:
+    FLAGFORGE_MGMT_KEY: \${{ secrets.FLAGFORGE_MGMT_KEY }}
   run: |
     curl -X PATCH \\
-      $FLAGFORGE_URL/api/v1/projects/$PROJECT_ID/flags/new-feature/toggle \\
-      -H "Authorization: Bearer $CLERK_JWT" \\
+      $FLAGFORGE_API/api/v1/projects/$PROJECT_ID/flags/new-feature/toggle \\
+      -H "Authorization: $FLAGFORGE_MGMT_KEY" \\
+      -H "Content-Type: application/json" \\
       -d '{"enabled": true, "environment_id": "$STAGING_ENV_ID"}'`}
         />
+      </>
+    ),
+  },
+
+  "flag-lifecycle": {
+    title: "Flag Lifecycle & Tech Debt",
+    content: (
+      <>
+        <p>
+          The <strong>Lifecycle</strong> dashboard finds flags that are still
+          enabled but haven&apos;t been modified recently — a common source of
+          flag debt.
+        </p>
+        <h3>Staleness detection</h3>
+        <p>
+          A flag is stale when it has had no audit activity (toggles, rule
+          changes, overrides) for longer than the threshold (default 90 days),
+          is enabled in at least one environment, and is not archived.
+        </p>
+        <h3>Lifecycle statuses</h3>
+        <ul>
+          <li><strong>active</strong> — normal operation</li>
+          <li><strong>deprecated</strong> — marked for removal; team cleans up code</li>
+          <li><strong>scheduled_cleanup</strong> — ready to archive</li>
+        </ul>
+        <h3>Ownership</h3>
+        <p>
+          Assign <code>owner_email</code> and <code>owner_name</code> so
+          institutional knowledge survives engineer turnover.
+        </p>
+        <h3>API</h3>
+        <CodeBlock
+          lang="http"
+          code={`GET  /api/v1/projects/{id}/lifecycle/stale?threshold_days=90
+PATCH /api/v1/projects/{id}/flags/{key}/lifecycle
+POST /api/v1/projects/{id}/flags/{key}/code-refs`}
+        />
+      </>
+    ),
+  },
+
+  "code-reference-scanning": {
+    title: "Code Reference Scanning",
+    content: (
+      <>
+        <p>
+          FlagForge stores where each flag appears in your source code. The
+          scanner is <strong>not built in</strong> — you run ripgrep in CI and
+          POST results to the ingest API.
+        </p>
+        <h3>How maintainers see references</h3>
+        <ol>
+          <li>CI runs <code>scripts/scan-flag-refs.sh</code> after each push</li>
+          <li>Script greps for each flag key and POSTs matches</li>
+          <li>Lifecycle dashboard shows ref counts and file paths per flag</li>
+        </ol>
+        <h3>Ingest API</h3>
+        <CodeBlock
+          lang="http"
+          code={`POST /api/v1/projects/{project_id}/flags/{flag_key}/code-refs
+Authorization: mgmt_...
+Content-Type: application/json
+
+{
+  "branch": "main",
+  "refs": [
+    {
+      "repo": "myorg/my-app",
+      "commit_sha": "abc123",
+      "file_path": "src/App.tsx",
+      "line_number": 42,
+      "snippet": "useBooleanFlag(\\"my-flag\\")"
+    }
+  ]
+}`}
+        />
+        <p>
+          Each POST replaces all refs for that flag + branch (idempotent).
+          Sending an empty <code>refs</code> array clears refs for that branch.
+        </p>
+        <h3>Included script</h3>
+        <CodeBlock
+          lang="bash"
+          code={`# Requires: rg, jq, curl
+chmod +x scripts/scan-flag-refs.sh
+export FLAGFORGE_API=https://your-server
+export FLAGFORGE_PROJECT_ID=...
+export FLAGFORGE_MGMT_KEY=mgmt_...
+./scripts/scan-flag-refs.sh`}
+        />
+        <h3>GitHub Actions example</h3>
+        <p>
+          Copy <code>deploy/github-actions-scan-flag-refs.example.yml</code> into
+          your app repo and set secrets: <code>FLAGFORGE_API_URL</code>,{" "}
+          <code>FLAGFORGE_PROJECT_ID</code>, <code>FLAGFORGE_MGMT_KEY</code>.
+        </p>
+      </>
+    ),
+  },
+
+  "management-api-keys": {
+    title: "Management API Keys",
+    content: (
+      <>
+        <p>
+          <code>mgmt_</code> keys authenticate automation against the Management
+          API without a Clerk session. They are project-scoped and revocable.
+        </p>
+        <h3>Create a key</h3>
+        <ol>
+          <li>Sign in to the dashboard</li>
+          <li>Go to <strong>Settings → CI / Management Keys</strong></li>
+          <li>Click <strong>Generate Key</strong> — copy the raw key immediately</li>
+        </ol>
+        <h3>Use in requests</h3>
+        <CodeBlock
+          lang="http"
+          code={`GET /api/v1/projects/{project_id}/flags
+Authorization: mgmt_xxxxxxxxxxxxxxxx`}
+        />
+        <h3>API endpoints</h3>
+        <CodeBlock
+          lang="http"
+          code={`GET  /api/v1/projects/{id}/management-keys
+POST /api/v1/projects/{id}/management-keys   { "name": "github-actions" }
+POST /api/v1/projects/{id}/management-keys/{key_id}/revoke`}
+        />
+        <p>
+          Creating and revoking keys requires a Clerk JWT (dashboard session).
+          Using a key works for read/write management calls scoped to that project
+          (flags, code refs, lifecycle, etc.).
+        </p>
+        <h3>Clerk M2M alternative</h3>
+        <p>
+          Teams on Clerk can use machine JWTs with{" "}
+          <code>Authorization: Bearer &lt;token&gt;</code> instead. For
+          self-hosted FlagForge, <code>mgmt_</code> keys are simpler — no Clerk
+          billing or M2M configuration required.
+        </p>
       </>
     ),
   },
