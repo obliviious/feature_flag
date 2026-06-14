@@ -143,6 +143,10 @@ export interface SdkKey {
   revoked_at: string | null;
 }
 
+export interface CreateSdkKeyResponse extends SdkKey {
+  raw_key: string;
+}
+
 export interface ManagementApiKey {
   id: string;
   project_id: string;
