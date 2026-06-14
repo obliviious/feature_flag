@@ -100,6 +100,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
 
 | Symptom | Check |
 |---------|--------|
+| **Server won't start / `no http client specified`** | Bug in older binaries when `OTEL_ENABLED=true`; set `OTEL_ENABLED=false` to recover, then redeploy latest build |
 | No data in Grafana | `OTEL_ENABLED=true`, correct endpoint region, valid Basic auth header |
 | Spans in logs but not Grafana | Firewall blocking outbound HTTPS to `otlp-gateway-*.grafana.net` |
 | High-cardinality paths | UUIDs in URLs are expected; filter/group by path prefix in dashboards |

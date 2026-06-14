@@ -30,25 +30,38 @@ impl Drop for TelemetryGuard {
     }
 }
 
-pub fn init(config: &OtelConfig, log_level: &str) -> anyhow::Result<Option<TelemetryGuard>> {
+pub fn init_logging_only(log_level: &str) {
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(log_level));
 
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(fmt::layer())
+        .init();
+}
+
+pub fn init(config: &OtelConfig, log_level: &str) -> anyhow::Result<Option<TelemetryGuard>> {
     if !config.enabled {
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(fmt::layer())
-            .init();
+        init_logging_only(log_level);
         return Ok(None);
     }
+
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new(log_level));
 
     let headers = parse_otlp_headers(&config.otlp_headers)?;
     let resource = Resource::builder()
         .with_service_name(config.service_name.clone())
         .build();
 
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| anyhow::anyhow!("failed to build OTLP HTTP client: {e}"))?;
+
     let trace_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
+        .with_http_client(http_client.clone())
         .with_endpoint(format!("{}/v1/traces", config.otlp_endpoint.trim_end_matches('/')))
         .with_headers(headers.clone())
         .with_timeout(Duration::from_secs(10))
@@ -64,6 +77,7 @@ pub fn init(config: &OtelConfig, log_level: &str) -> anyhow::Result<Option<Telem
 
     let meter_exporter = opentelemetry_otlp::MetricExporter::builder()
         .with_http()
+        .with_http_client(http_client)
         .with_endpoint(format!("{}/v1/metrics", config.otlp_endpoint.trim_end_matches('/')))
         .with_headers(headers)
         .with_timeout(Duration::from_secs(10))

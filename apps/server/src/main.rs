@@ -35,7 +35,17 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::from_env();
 
-    let _telemetry = telemetry::init(&config.otel, &config.log_level)?;
+    let _telemetry = match telemetry::init(&config.otel, &config.log_level) {
+        Ok(guard) => guard,
+        Err(e) => {
+            eprintln!(
+                "Warning: OpenTelemetry init failed ({e}); starting without OTLP export. \
+                 Set OTEL_ENABLED=false to silence this, or fix OTEL_* env vars."
+            );
+            telemetry::init_logging_only(&config.log_level);
+            None
+        }
+    };
 
     tracing::info!("Starting FlagForge server v{}", env!("CARGO_PKG_VERSION"));
 
