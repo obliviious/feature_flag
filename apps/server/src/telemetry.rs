@@ -130,7 +130,16 @@ fn parse_otlp_headers(raw: &str) -> anyhow::Result<HashMap<String, String>> {
         let (key, value) = part
             .split_once('=')
             .ok_or_else(|| anyhow::anyhow!("invalid OTEL_EXPORTER_OTLP_HEADERS entry: {part}"))?;
-        headers.insert(key.trim().to_string(), value.trim().to_string());
+        headers.insert(key.trim().to_string(), decode_header_value(value.trim()));
     }
     Ok(headers)
+}
+
+/// Grafana Cloud UI sometimes URL-encodes header values (e.g. `Basic%20abc...`).
+fn decode_header_value(value: &str) -> String {
+    value
+        .replace("%20", " ")
+        .replace("%2B", "+")
+        .replace("%2F", "/")
+        .replace("%3D", "=")
 }
