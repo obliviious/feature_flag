@@ -5,6 +5,7 @@ use axum::{
     response::Response,
 };
 use chrono::Utc;
+use serde::Deserialize;
 use sqlx::FromRow;
 use std::time::Duration;
 use uuid::Uuid;
@@ -252,10 +253,16 @@ pub async fn require_auth(
     Ok(next.run(req).await)
 }
 
+/// Extract `project_id` from nested management routes without consuming other path params.
+#[derive(Debug, Deserialize)]
+pub(crate) struct ProjectIdPath {
+    project_id: Uuid,
+}
+
 /// Ensures management API keys can only access their own project.
 pub async fn require_project_scope(
     Extension(auth): Extension<AuthInfo>,
-    Path(project_id): Path<Uuid>,
+    Path(ProjectIdPath { project_id }): Path<ProjectIdPath>,
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {

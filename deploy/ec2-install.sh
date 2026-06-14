@@ -20,6 +20,7 @@ BINARY_NAME="flagforge-server"
 LOG_FILE="${LOG_FILE:-flagforge.log}"
 PID_FILE="${PID_FILE:-flagforge-server.pid}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8080/health}"
+STAGING_DIR="${STAGING_DIR:-${INSTALL_DIR}/.${BINARY_NAME}-staging}"
 
 cd "$INSTALL_DIR"
 
@@ -28,19 +29,53 @@ if [[ -n "${GITHUB_TOKEN:-}" ]]; then
   AUTH_HEADER=(-H "Authorization: Bearer $GITHUB_TOKEN")
 fi
 
+stop_server() {
+  if [[ -f "${PID_FILE}" ]]; then
+    local old_pid
+    old_pid="$(cat "${PID_FILE}")"
+    if kill -0 "${old_pid}" 2>/dev/null; then
+      echo "Stopping PID ${old_pid}..."
+      kill "${old_pid}" 2>/dev/null || true
+      sleep 1
+    fi
+    rm -f "${PID_FILE}"
+  fi
+
+  pkill -f "./${BINARY_NAME}" 2>/dev/null || pkill -f "${BINARY_NAME}" 2>/dev/null || true
+  sleep 1
+}
+
+cleanup_staging() {
+  rm -rf "${STAGING_DIR}"
+}
+
 echo "Downloading ${BINARY_NAME} from ${GITHUB_REPO} (${RELEASE_TAG})..."
 echo "Install directory: ${INSTALL_DIR}"
 
+cleanup_staging
+mkdir -p "${STAGING_DIR}"
+
+# Download to a staging dir — never overwrite the running executable in place.
 curl -fsSL "${AUTH_HEADER[@]}" \
-  -o "${BINARY_NAME}" \
+  -o "${STAGING_DIR}/${BINARY_NAME}" \
   "https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}/${BINARY_NAME}"
 
 curl -fsSL "${AUTH_HEADER[@]}" \
-  -o "${BINARY_NAME}.sha256" \
+  -o "${STAGING_DIR}/${BINARY_NAME}.sha256" \
   "https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}/${BINARY_NAME}.sha256"
 
-sha256sum -c "${BINARY_NAME}.sha256"
-chmod +x "${BINARY_NAME}"
+(
+  cd "${STAGING_DIR}"
+  sha256sum -c "${BINARY_NAME}.sha256"
+)
+chmod +x "${STAGING_DIR}/${BINARY_NAME}"
+
+# Stop before replace so Linux allows swapping the executable file.
+stop_server
+
+mv -f "${STAGING_DIR}/${BINARY_NAME}" "${BINARY_NAME}"
+cp -f "${STAGING_DIR}/${BINARY_NAME}.sha256" "${BINARY_NAME}.sha256"
+cleanup_staging
 
 echo ""
 echo "Installed: ${INSTALL_DIR}/${BINARY_NAME}"
@@ -62,18 +97,7 @@ if [[ ! -f "${INSTALL_DIR}/.env" ]]; then
 fi
 
 echo ""
-echo "Restarting ${BINARY_NAME}..."
-
-if [[ -f "${PID_FILE}" ]]; then
-  old_pid="$(cat "${PID_FILE}")"
-  if kill -0 "${old_pid}" 2>/dev/null; then
-    kill "${old_pid}" 2>/dev/null || true
-    sleep 1
-  fi
-fi
-
-pkill -f "./${BINARY_NAME}" 2>/dev/null || pkill -f "${BINARY_NAME}" 2>/dev/null || true
-sleep 1
+echo "Starting ${BINARY_NAME}..."
 
 nohup "./${BINARY_NAME}" > "${LOG_FILE}" 2>&1 &
 echo $! > "${PID_FILE}"
