@@ -457,6 +457,9 @@ export function createApi(getToken: GetToken) {
         `${base(projectId)}/lifecycle/stale${thresholdDays !== undefined ? `?threshold_days=${thresholdDays}` : ""}`
       ),
 
+    getLifecycleFlags: (projectId: string) =>
+      request<StaleFlagSummary[]>(getToken, `${base(projectId)}/lifecycle/flags`),
+
     updateFlagLifecycle: (projectId: string, flagKey: string, data: UpdateFlagLifecycleBody) =>
       request<Flag>(
         getToken,

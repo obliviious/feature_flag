@@ -1,18 +1,57 @@
 #!/usr/bin/env bash
 # Scan a git repository for FlagForge flag key references and push them to FlagForge.
 #
-# Required environment variables:
+# Required (env vars or .env file in the current directory):
 #   FLAGFORGE_API       Base URL of FlagForge server (e.g. https://flags.example.com)
 #   FLAGFORGE_PROJECT_ID  Project UUID from dashboard Settings
 #   FLAGFORGE_MGMT_KEY  Management API key (mgmt_...) from Settings → CI / Management Keys
 #
 # Optional:
+#   FLAGFORGE_ENV_FILE  Path to .env file (default: ./.env)
+#   FLAGFORGE_API_URL   Alias for FLAGFORGE_API (common in .env / GitHub secrets)
 #   FLAGFORGE_BRANCH    Branch name (default: current git branch or "main")
 #   FLAGFORGE_REPO      Repo identifier (default: git remote origin URL)
 #   SCAN_PATH           Directory to scan (default: .)
 #   RG_EXTRA_ARGS       Extra args passed to ripgrep (e.g. '--glob !node_modules')
+#
+# Example .env:
+#   FLAGFORGE_API=https://flags.example.com
+#   FLAGFORGE_PROJECT_ID=550e8400-e29b-41d4-a716-446655440000
+#   FLAGFORGE_MGMT_KEY=mgmt_...
 
 set -euo pipefail
+
+load_env_file() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}" # strip inline comments
+    line="${line#"${line%%[![:space:]]*}"}" # trim leading whitespace
+    [[ -z "$line" ]] && continue
+    line="${line#export }"
+
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      local key="${BASH_REMATCH[1]}"
+      local val="${BASH_REMATCH[2]}"
+      val="${val#"${val%%[![:space:]]*}"}"
+      val="${val%"${val##*[![:space:]]}"}"
+      if [[ "$val" == \"*\" && "$val" == *\" ]]; then
+        val="${val:1:${#val}-2}"
+      elif [[ "$val" == \'*\' && "$val" == *\' ]]; then
+        val="${val:1:${#val}-2}"
+      fi
+      if [[ -z "${!key:-}" ]]; then
+        export "$key=$val"
+      fi
+    fi
+  done < "$file"
+}
+
+ENV_FILE="${FLAGFORGE_ENV_FILE:-.env}"
+load_env_file "$ENV_FILE"
+
+FLAGFORGE_API="${FLAGFORGE_API:-${FLAGFORGE_API_URL:-}}"
 
 : "${FLAGFORGE_API:?Set FLAGFORGE_API (e.g. https://flags.example.com)}"
 : "${FLAGFORGE_PROJECT_ID:?Set FLAGFORGE_PROJECT_ID}"

@@ -260,6 +260,7 @@ fn management_routes() -> Router<AppState> {
         )
         // Stale-flag query (lifecycle)
         .route("/lifecycle/stale", get(lifecycle::get_stale_flags))
+        .route("/lifecycle/flags", get(lifecycle::get_lifecycle_flags))
         .route(
             "/segments",
             post(segments::create_segment).get(segments::list_segments),

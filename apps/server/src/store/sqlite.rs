@@ -1157,6 +1157,40 @@ impl SqliteStore {
         Ok(rows)
     }
 
+    /// All non-archived flags with lifecycle metadata and code-ref counts (not limited to stale).
+    pub async fn get_lifecycle_flags(&self, project_id: Uuid) -> Result<Vec<StaleFlagRow>> {
+        let rows = sqlx::query_as::<_, StaleFlagRow>(
+            "SELECT
+                f.id, f.project_id, f.key, f.name, f.description, f.flag_type,
+                f.tags, f.owner_email, f.owner_name, f.lifecycle_status,
+                f.stale_threshold_days, f.created_at,
+                MAX(al.created_at) AS last_activity_at,
+                CAST(
+                    julianday('now') -
+                    julianday(COALESCE(MAX(al.created_at), f.created_at))
+                    AS INTEGER
+                ) AS staleness_days,
+                (SELECT COUNT(*) FROM flag_code_references cr
+                 WHERE cr.flag_id = f.id) AS code_ref_count
+            FROM flags f
+            LEFT JOIN audit_log al
+                ON  al.entity_id = f.id
+                AND al.action IN (
+                    'flag_updated', 'flag_toggled',
+                    'rule_created', 'rule_updated', 'rule_deleted',
+                    'override_upserted', 'override_deleted'
+                )
+            WHERE f.project_id = ?
+              AND f.archived = 0
+            GROUP BY f.id
+            ORDER BY code_ref_count DESC, f.key ASC",
+        )
+        .bind(project_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
     /// Idempotently replaces all code references for a flag+branch pair.
     pub async fn upsert_code_references(
         &self,

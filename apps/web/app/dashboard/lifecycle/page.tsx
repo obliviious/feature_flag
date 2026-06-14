@@ -52,6 +52,8 @@ function stalenessColor(days: number): string {
 
 const THRESHOLD_OPTIONS = [30, 60, 90, 180, 365];
 
+type ViewMode = "stale" | "all";
+
 // ============================================================
 // Sub-components
 // ============================================================
@@ -462,24 +464,29 @@ function ArchiveModal({
 
 export default function LifecyclePage() {
   const { project, loading: projectLoading, api } = useProject();
+  const [viewMode, setViewMode] = useState<ViewMode>("stale");
+  const [refsOnly, setRefsOnly] = useState(false);
   const [thresholdDays, setThresholdDays] = useState(90);
   const [selectedFlag, setSelectedFlag] = useState<StaleFlagSummary | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<StaleFlagSummary | null>(null);
 
-  const fetchStale = useCallback(
-    () =>
-      project
-        ? api.getStaleFlags(project.id, thresholdDays)
-        : Promise.resolve([]),
-    [project?.id, api, thresholdDays]
+  const fetchFlags = useCallback(
+    () => {
+      if (!project) return Promise.resolve([]);
+      if (viewMode === "stale") {
+        return api.getStaleFlags(project.id, thresholdDays);
+      }
+      return api.getLifecycleFlags(project.id);
+    },
+    [project?.id, api, thresholdDays, viewMode]
   );
 
   const {
-    data: staleFlags,
+    data: flags,
     loading,
     error,
     refetch,
-  } = useApiData(fetchStale, [project?.id, thresholdDays]);
+  } = useApiData(fetchFlags, [project?.id, thresholdDays, viewMode]);
 
   async function handleUpdateLifecycle(
     flagKey: string,
@@ -521,7 +528,61 @@ export default function LifecyclePage() {
   if (!project) return <SetupPrompt />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
-  const count = staleFlags?.length ?? 0;
+  const allFlags = flags ?? [];
+  const displayedFlags =
+    viewMode === "all" && refsOnly
+      ? allFlags.filter((f) => f.code_ref_count > 0)
+      : allFlags;
+  const count = displayedFlags.length;
+  const totalWithRefs = allFlags.filter((f) => f.code_ref_count > 0).length;
+
+  const stats =
+    viewMode === "stale"
+      ? [
+          {
+            label: "Stale flags",
+            value: count,
+            color: count > 0 ? "text-red-400" : "text-green-400",
+          },
+          {
+            label: "No owner",
+            value: allFlags.filter((f) => !f.owner_email).length,
+            color: "text-yellow-400",
+          },
+          {
+            label: "Deprecated",
+            value: allFlags.filter((f) => f.lifecycle_status === "deprecated").length,
+            color: "text-text-secondary",
+          },
+          {
+            label: "Cleanup queued",
+            value: allFlags.filter((f) => f.lifecycle_status === "scheduled_cleanup")
+              .length,
+            color: "text-text-secondary",
+          },
+        ]
+      : [
+          {
+            label: "Total flags",
+            value: allFlags.length,
+            color: "text-text-primary",
+          },
+          {
+            label: "With code refs",
+            value: totalWithRefs,
+            color: totalWithRefs > 0 ? "text-green-400" : "text-text-muted",
+          },
+          {
+            label: "No refs yet",
+            value: allFlags.filter((f) => f.code_ref_count === 0).length,
+            color: "text-text-secondary",
+          },
+          {
+            label: "No owner",
+            value: allFlags.filter((f) => !f.owner_email).length,
+            color: "text-yellow-400",
+          },
+        ];
 
   return (
     <div className="p-6 md:p-8 relative z-10 space-y-6">
@@ -532,62 +593,78 @@ export default function LifecyclePage() {
             Flag Lifecycle
           </h1>
           <p className="font-mono text-[0.55rem] text-text-muted uppercase tracking-wider mt-1">
-            {project.name} &bull; Stale flag detection &amp; ownership management
+            {project.name} &bull; Stale flag detection, ownership &amp; code references
           </p>
         </div>
 
-        {/* Threshold selector */}
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider whitespace-nowrap">
-            Stale after
-          </span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* View tabs */}
           <div className="flex border border-border">
-            {THRESHOLD_OPTIONS.map((d) => (
+            {(
+              [
+                ["stale", "Stale flags"],
+                ["all", "All flags"],
+              ] as const
+            ).map(([mode, label]) => (
               <button
-                key={d}
-                onClick={() => setThresholdDays(d)}
-                className={`font-mono text-[0.5rem] uppercase tracking-wider px-2.5 py-1.5 transition-colors ${
-                  thresholdDays === d
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`font-mono text-[0.5rem] uppercase tracking-wider px-3 py-1.5 transition-colors ${
+                  viewMode === mode
                     ? "bg-accent-red text-white"
                     : "text-text-muted hover:text-text-primary"
                 }`}
               >
-                {d >= 365 ? "1y" : `${d}d`}
+                {label}
               </button>
             ))}
           </div>
+
+          {/* Threshold selector (stale view only) */}
+          {viewMode === "stale" && (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider whitespace-nowrap">
+                Stale after
+              </span>
+              <div className="flex border border-border">
+                {THRESHOLD_OPTIONS.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setThresholdDays(d)}
+                    className={`font-mono text-[0.5rem] uppercase tracking-wider px-2.5 py-1.5 transition-colors ${
+                      thresholdDays === d
+                        ? "bg-accent-red text-white"
+                        : "text-text-muted hover:text-text-primary"
+                    }`}
+                  >
+                    {d >= 365 ? "1y" : `${d}d`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Refs filter (all flags view) */}
+          {viewMode === "all" && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={refsOnly}
+                onChange={(e) => setRefsOnly(e.target.checked)}
+                className="accent-accent-red"
+              />
+              <span className="font-mono text-[0.5rem] text-text-muted uppercase tracking-wider">
+                With code refs only
+              </span>
+            </label>
+          )}
         </div>
       </div>
 
       {/* Stats bar */}
       {!loading && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            {
-              label: "Stale flags",
-              value: count,
-              color: count > 0 ? "text-red-400" : "text-green-400",
-            },
-            {
-              label: "No owner",
-              value: (staleFlags ?? []).filter((f) => !f.owner_email).length,
-              color: "text-yellow-400",
-            },
-            {
-              label: "Deprecated",
-              value: (staleFlags ?? []).filter(
-                (f) => f.lifecycle_status === "deprecated"
-              ).length,
-              color: "text-text-secondary",
-            },
-            {
-              label: "Cleanup queued",
-              value: (staleFlags ?? []).filter(
-                (f) => f.lifecycle_status === "scheduled_cleanup"
-              ).length,
-              color: "text-text-secondary",
-            },
-          ].map(({ label, value, color }) => (
+          {stats.map(({ label, value, color }) => (
             <div
               key={label}
               className="border border-border bg-bg-card px-4 py-3"
@@ -605,31 +682,54 @@ export default function LifecyclePage() {
 
       {/* Table */}
       {loading ? (
-        <LoadingState label="Scanning for stale flags…" />
+        <LoadingState
+          label={viewMode === "stale" ? "Scanning for stale flags…" : "Loading flags…"}
+        />
       ) : count === 0 ? (
         <div className="border border-border bg-bg-card px-6 py-16 text-center space-y-3">
-          <div className="flex justify-center">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 32 32"
-              fill="none"
-              className="text-green-400"
-            >
-              <circle cx="16" cy="16" r="13" stroke="currentColor" strokeWidth="1.5" />
-              <path
-                d="M10 16l4 4 8-8"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <p className="font-serif text-lg text-text-primary">No stale flags</p>
-          <p className="font-mono text-[0.55rem] text-text-muted">
-            All active flags have had changes within the last {thresholdDays} days.
-          </p>
+          {viewMode === "stale" ? (
+            <>
+              <div className="flex justify-center">
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 32 32"
+                  fill="none"
+                  className="text-green-400"
+                >
+                  <circle cx="16" cy="16" r="13" stroke="currentColor" strokeWidth="1.5" />
+                  <path
+                    d="M10 16l4 4 8-8"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+              <p className="font-serif text-lg text-text-primary">No stale flags</p>
+              <p className="font-mono text-[0.55rem] text-text-muted">
+                All active flags have had changes within the last {thresholdDays} days.
+                Switch to <strong className="text-text-secondary">All flags</strong> to
+                browse code references for every flag.
+              </p>
+            </>
+          ) : refsOnly ? (
+            <>
+              <p className="font-serif text-lg text-text-primary">No code references yet</p>
+              <p className="font-mono text-[0.55rem] text-text-muted max-w-md mx-auto">
+                Run <code className="text-text-secondary">scripts/scan-flag-refs.sh</code> in
+                CI or locally to ingest references. See setup below.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-serif text-lg text-text-primary">No flags in project</p>
+              <p className="font-mono text-[0.55rem] text-text-muted">
+                Create flags on the Flags page first.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="border border-border">
@@ -647,7 +747,7 @@ export default function LifecyclePage() {
 
           {/* Rows */}
           <div className="divide-y divide-border">
-            {staleFlags!.map((flag) => (
+            {displayedFlags.map((flag) => (
               <div
                 key={flag.id}
                 className="grid grid-cols-[1fr_120px_100px_80px_80px_120px] gap-3 items-center px-4 py-3 hover:bg-bg-card/50 transition-colors"
@@ -739,9 +839,10 @@ export default function LifecyclePage() {
               <Link href="/dashboard/settings" className="text-accent-red hover:underline">
                 management key (mgmt_…)
               </Link>{" "}
-              in Settings, then run{" "}
+              in Settings,               then run{" "}
               <code className="text-text-secondary">scripts/scan-flag-refs.sh</code> in CI or locally.
-              Results appear in the Refs column and flag detail panel above.
+              Use the <strong className="text-text-secondary">All flags</strong> tab to view code
+              references for every flag — not just stale ones.
             </p>
           </div>
           <div className="space-y-3">

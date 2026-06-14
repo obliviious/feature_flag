@@ -106,6 +106,40 @@ pub async fn get_stale_flags(
     Ok(Json(summaries))
 }
 
+/// GET /api/v1/projects/{project_id}/lifecycle/flags
+pub async fn get_lifecycle_flags(
+    State(state): State<AppState>,
+    Path(project_id): Path<Uuid>,
+    Extension(_auth): Extension<AuthInfo>,
+) -> Result<Json<Vec<StaleFlagSummary>>, ApiError> {
+    let rows = state
+        .store
+        .get_lifecycle_flags(project_id)
+        .await
+        .map_err(|e| err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+
+    let summaries = rows
+        .into_iter()
+        .map(|r| StaleFlagSummary {
+            id: r.id.to_string(),
+            key: r.key,
+            name: r.name,
+            description: r.description,
+            flag_type: r.flag_type,
+            owner_email: r.owner_email,
+            owner_name: r.owner_name,
+            lifecycle_status: r.lifecycle_status,
+            stale_threshold_days: r.stale_threshold_days,
+            created_at: r.created_at.to_rfc3339(),
+            last_activity_at: r.last_activity_at.map(|t| t.to_rfc3339()),
+            staleness_days: r.staleness_days,
+            code_ref_count: r.code_ref_count,
+        })
+        .collect();
+
+    Ok(Json(summaries))
+}
+
 /// POST /api/v1/projects/{project_id}/flags/{flag_key}/code-refs
 pub async fn ingest_code_refs(
     State(state): State<AppState>,
