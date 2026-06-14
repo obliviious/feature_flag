@@ -5,6 +5,7 @@ mod broadcaster;
 mod config;
 mod state;
 mod store;
+mod telemetry;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,7 +17,6 @@ use axum::{
 };
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::{fmt, EnvFilter};
 use axum::http::Request;
 
 use crate::api::middleware::audit::audit_context_middleware;
@@ -35,13 +35,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::from_env();
 
-    // Initialize tracing
-    fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(&config.log_level)),
-        )
-        .init();
+    let _telemetry = telemetry::init(&config.otel, &config.log_level)?;
 
     tracing::info!("Starting FlagForge server v{}", env!("CARGO_PKG_VERSION"));
 
@@ -149,14 +143,23 @@ async fn main() -> anyhow::Result<()> {
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(|request: &Request<_>| {
+                    let path = request.uri().path();
                     tracing::info_span!(
-                        "http_request",
-                        method = %request.method(),
-                        uri = %request.uri(),
+                        "HTTP",
+                        otel.name = %format!("{} {}", request.method(), path),
+                        http.request.method = %request.method(),
+                        url.path = %path,
+                        http.response.status_code = tracing::field::Empty,
+                        http.server.request.duration_ms = tracing::field::Empty,
                     )
                 })
                 .on_response(
-                    |response: &axum::http::Response<_>, latency: std::time::Duration, _span: &tracing::Span| {
+                    |response: &axum::http::Response<_>, latency: std::time::Duration, span: &tracing::Span| {
+                        span.record("http.response.status_code", response.status().as_u16());
+                        span.record(
+                            "http.server.request.duration_ms",
+                            latency.as_millis() as i64,
+                        );
                         tracing::info!(
                             status = %response.status(),
                             latency_ms = latency.as_millis(),

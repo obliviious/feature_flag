@@ -1,6 +1,15 @@
 use std::env;
 
 #[derive(Debug, Clone)]
+pub struct OtelConfig {
+    pub enabled: bool,
+    pub service_name: String,
+    pub otlp_endpoint: String,
+    /// Comma-separated `Key=Value` pairs (Grafana Cloud: `Authorization=Basic ...`).
+    pub otlp_headers: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct Config {
     pub host: String,
     pub port: u16,
@@ -8,6 +17,7 @@ pub struct Config {
     pub redis_url: String,
     pub clerk_domain: String,
     pub log_level: String,
+    pub otel: OtelConfig,
     pub sdk_eval_rate_limit_per_minute: u32,
     pub redis_cb_initial_backoff_secs: u64,
     pub redis_cb_max_backoff_secs: u64,
@@ -30,6 +40,14 @@ impl Config {
                 .expect("CLERK_DOMAIN must be set (e.g. your-app.clerk.accounts.dev)"),
             log_level: env::var("LOG_LEVEL")
                 .unwrap_or_else(|_| "info".into()),
+            otel: OtelConfig {
+                enabled: env_bool("OTEL_ENABLED", false),
+                service_name: env::var("OTEL_SERVICE_NAME")
+                    .unwrap_or_else(|_| "flagforge-server".into()),
+                otlp_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+                    .unwrap_or_else(|_| "http://localhost:4318".into()),
+                otlp_headers: env::var("OTEL_EXPORTER_OTLP_HEADERS").unwrap_or_default(),
+            },
             sdk_eval_rate_limit_per_minute: env::var("SDK_EVAL_RATE_LIMIT_PER_MINUTE")
                 .unwrap_or_else(|_| "0".into())
                 .parse()
@@ -48,5 +66,15 @@ impl Config {
 
     pub fn addr(&self) -> String {
         format!("{}:{}", self.host, self.port)
+    }
+}
+
+fn env_bool(key: &str, default: bool) -> bool {
+    match env::var(key) {
+        Ok(value) => matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
+        Err(_) => default,
     }
 }

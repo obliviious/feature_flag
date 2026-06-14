@@ -131,6 +131,19 @@ pnpm dev
 
 Open **http://localhost:3000**. Sign in and complete initial setup from the dashboard (or call `POST /api/v1/setup`).
 
+## Observability (OpenTelemetry + Grafana)
+
+The server can export HTTP traces and metrics to **Grafana Cloud** or any OTLP backend. Off by default; enable with env vars:
+
+```env
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME=flagforge-server
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic BASE64_INSTANCE_ID_COLON_TOKEN
+```
+
+Full setup (Grafana Cloud, EC2, self-hosted Alloy): **[deploy/grafana-otel.md](deploy/grafana-otel.md)**.
+
 ## Repository layout
 
 ```
