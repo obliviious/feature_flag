@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use opentelemetry::global;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
@@ -49,7 +50,7 @@ pub fn init(config: &OtelConfig, log_level: &str) -> anyhow::Result<Option<Telem
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(log_level));
 
-    let headers = parse_otlp_headers(&config.otlp_headers)?;
+    let headers = resolve_otlp_headers(config)?;
     let resource = Resource::builder()
         .with_service_name(config.service_name.clone())
         .build();
@@ -108,6 +109,26 @@ pub fn init(config: &OtelConfig, log_level: &str) -> anyhow::Result<Option<Telem
         tracer_provider,
         meter_provider,
     }))
+}
+
+fn resolve_otlp_headers(config: &OtelConfig) -> anyhow::Result<HashMap<String, String>> {
+    if let (Some(instance_id), Some(token)) =
+        (&config.grafana_instance_id, &config.grafana_otlp_token)
+    {
+        let encoded = STANDARD.encode(format!("{}:{}", instance_id.trim(), token.trim()));
+        let mut headers = HashMap::new();
+        headers.insert("Authorization".to_string(), format!("Basic {encoded}"));
+        return Ok(headers);
+    }
+
+    let headers = parse_otlp_headers(&config.otlp_headers)?;
+    if headers.is_empty() {
+        anyhow::bail!(
+            "OTEL is enabled but no auth configured. Set GRAFANA_CLOUD_INSTANCE_ID + \
+             GRAFANA_CLOUD_OTLP_TOKEN, or OTEL_EXPORTER_OTLP_HEADERS"
+        );
+    }
+    Ok(headers)
 }
 
 fn parse_otlp_headers(raw: &str) -> anyhow::Result<HashMap<String, String>> {

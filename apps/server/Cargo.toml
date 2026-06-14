@@ -51,5 +51,6 @@ rand = { workspace = true }
 
 sha2 = "0.10"
 hex = "0.4"
+base64 = "0.22"
 tokio-stream = "0.1"
 rmp-serde = "1"

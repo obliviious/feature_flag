@@ -22,10 +22,29 @@ Add to your repo-root `.env` on the server:
 
 ```env
 OTEL_ENABLED=true
-OTEL_SERVICE_NAME=flagforge-server
-OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-us-central-0.grafana.net/otlp
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic BASE64_INSTANCE_ID_COLON_TOKEN
+OTEL_SERVICE_NAME=flagforge
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-south-1.grafana.net/otlp
+
+# Recommended — copy from Grafana Cloud → OpenTelemetry → Configure tile:
+GRAFANA_CLOUD_INSTANCE_ID=1234567        # numeric, NOT glc_...
+GRAFANA_CLOUD_OTLP_TOKEN=glc_...         # access policy token with traces:write
+
+# Alternative (manual base64 of "instance_id:token"):
+# OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic MTY5...
 ```
+
+**Important:** Edit `~/feature_flag/.env` on EC2 (repo root). If that file already exists, `ec2-install.sh` does **not** copy from `apps/server/.env`.
+
+Verify auth from EC2 (replace with your values):
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -u 'INSTANCE_ID:glc_TOKEN' \
+  'https://otlp-gateway-prod-ap-south-1.grafana.net/otlp/v1/traces'
+```
+
+- `401` = wrong instance ID or token (regenerate token in Grafana)
+- `400` or `415` = auth OK (body format rejected — that's fine for this test)
 
 Redeploy / restart:
 
@@ -102,7 +121,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
 |---------|--------|
 | **Server won't start / `no http client specified`** | Bug in older binaries when `OTEL_ENABLED=true`; set `OTEL_ENABLED=false` to recover, then redeploy latest build |
 | **Grafana "could not find any traces yet"** | Server must be running on EC2 with fixed binary; check log for `OpenTelemetry export enabled`; fix auth header; generate traffic; wait 2–5 min |
-| **`no reactor running` / `BatchSpanProcessor dropped a Span`** | Fixed in latest build — async OTLP client on background thread; redeploy |
+| **`BatchSpanProcessor.ExportError` 401** | Invalid Grafana auth — use numeric `GRAFANA_CLOUD_INSTANCE_ID` + `GRAFANA_CLOUD_OTLP_TOKEN`; regenerate token with `traces:write` |
 | No data in Grafana | `OTEL_ENABLED=true`, correct endpoint region, valid Basic auth header |
 | Spans in logs but not Grafana | Firewall blocking outbound HTTPS to `otlp-gateway-*.grafana.net` |
 | High-cardinality paths | UUIDs in URLs are expected; filter/group by path prefix in dashboards |

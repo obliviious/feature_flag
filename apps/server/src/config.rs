@@ -7,6 +7,10 @@ pub struct OtelConfig {
     pub otlp_endpoint: String,
     /// Comma-separated `Key=Value` pairs (Grafana Cloud: `Authorization=Basic ...`).
     pub otlp_headers: String,
+    /// Grafana Cloud numeric instance ID (alternative to OTEL_EXPORTER_OTLP_HEADERS).
+    pub grafana_instance_id: Option<String>,
+    /// Grafana Cloud access policy token `glc_...` (used with grafana_instance_id).
+    pub grafana_otlp_token: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +51,12 @@ impl Config {
                 otlp_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
                     .unwrap_or_else(|_| "http://localhost:4318".into()),
                 otlp_headers: env::var("OTEL_EXPORTER_OTLP_HEADERS").unwrap_or_default(),
+                grafana_instance_id: env::var("GRAFANA_CLOUD_INSTANCE_ID")
+                    .ok()
+                    .filter(|s| !s.trim().is_empty()),
+                grafana_otlp_token: env::var("GRAFANA_CLOUD_OTLP_TOKEN")
+                    .ok()
+                    .filter(|s| !s.trim().is_empty()),
             },
             sdk_eval_rate_limit_per_minute: env::var("SDK_EVAL_RATE_LIMIT_PER_MINUTE")
                 .unwrap_or_else(|_| "0".into())
