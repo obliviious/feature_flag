@@ -54,14 +54,10 @@ pub fn init(config: &OtelConfig, log_level: &str) -> anyhow::Result<Option<Telem
         .with_service_name(config.service_name.clone())
         .build();
 
-    let http_client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|e| anyhow::anyhow!("failed to build OTLP HTTP client: {e}"))?;
-
+    // Use the blocking reqwest client (BatchSpanProcessor exports from a background thread
+    // without a Tokio runtime — async reqwest panics with "no reactor running").
     let trace_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_http()
-        .with_http_client(http_client.clone())
         .with_endpoint(format!("{}/v1/traces", config.otlp_endpoint.trim_end_matches('/')))
         .with_headers(headers.clone())
         .with_timeout(Duration::from_secs(10))
@@ -77,7 +73,6 @@ pub fn init(config: &OtelConfig, log_level: &str) -> anyhow::Result<Option<Telem
 
     let meter_exporter = opentelemetry_otlp::MetricExporter::builder()
         .with_http()
-        .with_http_client(http_client)
         .with_endpoint(format!("{}/v1/metrics", config.otlp_endpoint.trim_end_matches('/')))
         .with_headers(headers)
         .with_timeout(Duration::from_secs(10))

@@ -101,7 +101,8 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
 | Symptom | Check |
 |---------|--------|
 | **Server won't start / `no http client specified`** | Bug in older binaries when `OTEL_ENABLED=true`; set `OTEL_ENABLED=false` to recover, then redeploy latest build |
-| **Grafana "could not find any traces yet"** | Server must be running on EC2 with fixed binary; check log for `OpenTelemetry export enabled`; fix auth header (`Basic MTY5...` not `Basic%20MTY5...`); generate traffic; wait 2–5 min |
+| **Grafana "could not find any traces yet"** | Server must be running on EC2 with fixed binary; check log for `OpenTelemetry export enabled`; fix auth header; generate traffic; wait 2–5 min |
+| **`no reactor running` / `BatchSpanProcessor dropped a Span`** | Fixed in latest build — async OTLP client on background thread; redeploy |
 | No data in Grafana | `OTEL_ENABLED=true`, correct endpoint region, valid Basic auth header |
 | Spans in logs but not Grafana | Firewall blocking outbound HTTPS to `otlp-gateway-*.grafana.net` |
 | High-cardinality paths | UUIDs in URLs are expected; filter/group by path prefix in dashboards |
